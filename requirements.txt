@@ -10,3 +10,6 @@ django_jazzmin==3.0.1
 django_silk==5.3.1
 celery==5.4.0
 redis==5.2.1
+django-phonenumber-field~=8.0.0
+django-filter==25.1.0
+phonenumbers==8.12.31
