@@ -6,6 +6,8 @@ from .models import *
 from .serializers import *
 from utils.pagination import StandardPagination
 
+from teams.models import Team
+
 import traceback
 
 
@@ -52,6 +54,36 @@ def get_project(request, pk):
         data = ProjectSerializer(project).data
 
         return Response(data, status=status.HTTP_200_OK)
+    except:
+        print(traceback.format_exc())
+        return Response(
+            {"error": "Something went wrong."},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+@api_view(["POST"])
+def submit_task(request):
+    try:
+        user = request.user
+        task_id = request.data.get("task_id")
+        team_id = request.data.get("team_id")
+        deployment_url = request.data.get("deployment_url")
+        github_url = request.data.get("github_url")
+
+        task = Task.objects.get(id=task_id)
+        team = Team.objects.get(id=team_id)
+        submission = Submission.objects.create(user=user, task=task, team=team)
+
+        if deployment_url:
+            submission.deployment_url = deployment_url
+
+        if github_url:
+            submission.github_url = github_url
+
+        submission.save()
+
+        return Response(status=status.HTTP_200_OK)
     except:
         print(traceback.format_exc())
         return Response(
