@@ -1,0 +1,8 @@
+DEBUG=1
+SECRET_KEY=hbvwbvwhvwy4833gj+s&ud*&tva)$0v8p7uyw9r%-x4qn0k6u_s^xwlbotd=&hf
+DJANGO_ALLOWED_HOSTS="localhost 127.0.0.1 [::1] 0.0.0.0"
+DB_PASSWORD=postgresql
+DB_NAME=careership
+DB_USER=app
+DB_HOST=db
+DB_PORT=5432
