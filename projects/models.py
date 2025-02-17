@@ -72,7 +72,7 @@ class Submission(models.Model):
     team = models.ForeignKey(
         'teams.Team', on_delete=models.CASCADE, null=True, blank=True, db_index=True
     )
-    is_pass = models.BooleanField()
+    is_pass = models.BooleanField(default=False)
     feedback = models.TextField(blank=True, null=True)
     # TODO: one of the following fields should be filled based on the project track or field.
     deployment_url = models.URLField(null=True, blank=True)
