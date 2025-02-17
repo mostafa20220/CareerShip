@@ -4,6 +4,7 @@ from rest_framework.decorators import api_view
 
 from .models import *
 from .serializers import *
+from utils.pagination import StandardPagination
 
 import traceback
 
@@ -27,9 +28,15 @@ def list_categories(request):
 def list_projects(request):
     try:
         projects = Project.objects.all()
-        data = ProjectSerializer(projects, many=True).data
 
-        return Response(data, status=status.HTTP_200_OK)
+        paginator = StandardPagination()
+        paginated_projects = paginator.paginate_queryset(projects, request)
+
+        data = ProjectSerializer(paginated_projects, many=True).data
+        paginated_response = paginator.get_paginated_response(data)
+        paginated_response.status_code = status.HTTP_200_OK
+
+        return paginated_response
     except:
         print(traceback.format_exc())
         return Response(
