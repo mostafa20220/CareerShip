@@ -25,7 +25,7 @@ urlpatterns = [
 
     path('api/v1/' , include([
         path('projects/', include('projects.urls')),
-        path('certificates/', certificates.views.generate_certificate , name='generate_certificate'),
+        path('certificates/', include('certificates.urls')),
     ]) ),
 
 ]
