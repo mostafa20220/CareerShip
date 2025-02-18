@@ -39,11 +39,16 @@ class User(AbstractBaseUser, PermissionsMixin):
     password = models.CharField(max_length=255)
     user_type = models.CharField(choices=USER_TYPE_CHOICES, default=STUDENT, max_length=50)
     is_active = models.BooleanField(default=True)
+    is_superuser = models.BooleanField(default=False)
+    is_staff = models.BooleanField(default=False)
     is_premium = models.BooleanField(default=False)
     phone =  PhoneNumberField(blank=True, null=True)
     avatar = models.ImageField(upload_to='avatars/', blank=True, null=True)
     google_id = models.CharField(max_length=255, blank=True, null=True)
     github_id = models.CharField(max_length=255, blank=True, null=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['first_name', 'last_name']
