@@ -91,3 +91,5 @@ db.sqlite3
 
 .idea/
 static/
+.venv/
+/media/
