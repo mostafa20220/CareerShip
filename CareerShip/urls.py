@@ -18,15 +18,16 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import path, include
-
 import certificates.views
 
 urlpatterns = [
     path('admin/', admin.site.urls),
 
     path('api/v1/' , include([
+        path('projects/', include('projects.urls')),
         path('certificates/', certificates.views.generate_certificate , name='generate_certificate'),
     ]) ),
 
 ]
+
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT) + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
