@@ -16,6 +16,7 @@ class CategoryAdmin(admin.ModelAdmin):
 
 @admin.register(Project)
 class ProjectAdmin(admin.ModelAdmin):
+    fields = ("name", "category", "difficulty_level", "is_premium" , "max_team_size")
     list_display = (
         "name",
         "category",
@@ -23,6 +24,7 @@ class ProjectAdmin(admin.ModelAdmin):
         "is_premium",
         "created_at",
         "max_team_size",
+        "slug"
     )
     list_filter = ("category", "difficulty_level", "is_premium")
     search_fields = ("name", "slug")
