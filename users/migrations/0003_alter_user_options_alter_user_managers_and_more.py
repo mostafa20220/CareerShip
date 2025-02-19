@@ -21,25 +21,6 @@ class Migration(migrations.Migration):
             managers=[
             ],
         ),
-        migrations.RemoveField(
-            model_name='user',
-            name='date_joined',
-        ),
-        migrations.RemoveField(
-            model_name='user',
-            name='username',
-        ),
-        migrations.AddField(
-            model_name='user',
-            name='created_at',
-            field=models.DateTimeField(auto_now_add=True, default=django.utils.timezone.now),
-            preserve_default=False,
-        ),
-        migrations.AddField(
-            model_name='user',
-            name='updated_at',
-            field=models.DateTimeField(auto_now=True),
-        ),
         migrations.AlterField(
             model_name='user',
             name='avatar',
