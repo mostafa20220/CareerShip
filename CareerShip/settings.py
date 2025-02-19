@@ -7,6 +7,7 @@ from decouple import config
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+
 # Django settings for CareerShip project.
 SECRET_KEY = config('SECRET_KEY')
 DEBUG = config('DEBUG', default=False, cast=bool)
@@ -22,6 +23,7 @@ EMAIL_USE_TLS = config("EMAIL_USE_TLS", default=True, cast=bool)
 EMAIL_HOST_USER = config("EMAIL_HOST_USER")
 EMAIL_HOST_PASSWORD = config("EMAIL_HOST_PASSWORD")
 DEFAULT_FROM_EMAIL = config("DEFAULT_FROM_EMAIL")
+
 
 # Application definition
 INSTALLED_APPS = [

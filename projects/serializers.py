@@ -22,8 +22,8 @@ class TaskSerializer(serializers.ModelSerializer):
 
 
 class ProjectSerializer(serializers.ModelSerializer):
-    difficulty_level = serializers.SerializerMethodField()
-    category = serializers.SerializerMethodField()
+    difficulty_level = serializers.StringRelatedField()
+    category = serializers.StringRelatedField()
     created_at = serializers.DateTimeField(format="%d %b %Y")
     tasks = TaskSerializer(many=True)
 
@@ -42,8 +42,10 @@ class ProjectSerializer(serializers.ModelSerializer):
             "tasks",
         ]
 
-    def get_difficulty_level(self, obj):
-        return obj.difficulty_level.name
+    # def get_difficulty_level(self, obj):
+    #     return obj.difficulty_level.name
+    #
+    # def get_category(self, obj):
+    #     return obj.category.name
 
-    def get_category(self, obj):
-        return obj.category.name
+

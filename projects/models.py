@@ -1,33 +1,44 @@
 from django.db import models
 
+from django.utils.text import slugify
+
 
 class DifficultyLevel(models.Model):
     name = models.CharField(max_length=255, unique=True)
     description = models.TextField(blank=True, null=True)
+
+    def __str__(self ):
+        return self.name
 
 
 class Category(models.Model):
     name = models.CharField(max_length=255, unique=True)
     description = models.TextField(blank=True, null=True)
 
+    def __str__(self ):
+        return self.name
+
 
 class Project(models.Model):
     difficulty_level = models.ForeignKey(
         'DifficultyLevel',
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
+        on_delete=models.CASCADE,
         db_index=True,
+        related_name='projects',
     )
     category = models.ForeignKey(
-        'Category', on_delete=models.SET_NULL, null=True, blank=True, db_index=True
+        'Category', on_delete=models.CASCADE,  db_index=True, related_name='projects'
     )
     name = models.CharField(max_length=255)
     description = models.TextField()
     slug = models.SlugField(unique=True)
     is_premium = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
-    max_team_size = models.PositiveSmallIntegerField()
+    max_team_size = models.PositiveSmallIntegerField(default=1)
+
+    def save(self, *args, **kwargs):
+        self.slug = slugify(self.name)
+        super(Project, self).save(*args, **kwargs)
 
 
 class Task(models.Model):
@@ -36,10 +47,9 @@ class Task(models.Model):
     )
     difficulty_level = models.ForeignKey(
         'DifficultyLevel',
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
+        on_delete=models.CASCADE,
         db_index=True,
+        related_name='tasks',
     )
     name = models.CharField(max_length=255)
     slug = models.SlugField(unique=True)
@@ -55,7 +65,7 @@ class Prerequisite(models.Model):
 class TaskPrerequisite(models.Model):
     task = models.ForeignKey('Task', on_delete=models.CASCADE, db_index=True)
     prerequisite = models.ForeignKey(
-        'Prerequisite', on_delete=models.CASCADE, db_index=True
+        'Prerequisite', on_delete=models.CASCADE, db_index=True,related_name='tasks'
     )
 
 
@@ -67,10 +77,10 @@ class Endpoint(models.Model):
 
 
 class Submission(models.Model):
-    task = models.ForeignKey('Task', on_delete=models.CASCADE, db_index=True)
-    user = models.ForeignKey('users.User', on_delete=models.CASCADE, db_index=True)
+    task = models.ForeignKey('Task', on_delete=models.CASCADE, db_index=True, related_name='submissions')
+    user = models.ForeignKey('users.User', on_delete=models.CASCADE, db_index=True, related_name="submissions")
     team = models.ForeignKey(
-        'teams.Team', on_delete=models.CASCADE, null=True, blank=True, db_index=True
+        'teams.Team', on_delete=models.CASCADE, null=True, blank=True, db_index=True,related_name='submissions'
     )
     is_pass = models.BooleanField(default=False)
     feedback = models.TextField(blank=True, null=True)
