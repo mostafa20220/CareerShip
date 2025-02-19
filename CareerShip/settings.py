@@ -102,6 +102,11 @@ DATABASES = {
     },
 }
 
+# global exception handler so we don't have to use try except much
+REST_FRAMEWORK = {
+    'EXCEPTION_HANDLER': 'utils.global_exception_handler.global_exception_handler',
+}
+
 # Password validation
 # https://docs.djangoproject.com/en/5.0/ref/settings/#auth-password-validators
 
