@@ -42,3 +42,40 @@ class AcceptInvitationView(APIView):
 
 
         return Response({"message": "Invitation accepted successfully!"}, status=status.HTTP_200_OK)
+
+
+# class CreateInvitationView(APIView):
+#     permission_classes = [IsAuthenticated]
+#
+#     def post(self, request, team_id):
+#
+
+
+class CreateTeamView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        """Creates a new team and adds the creator as a member."""
+        team_name = request.data.get("name")
+        is_private = request.data.get("is_private") or True
+        project = request.data.get("project")
+
+        if not team_name:
+            return Response({"error": "Team name is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+
+        # Create the team
+        team = Team.objects.create(
+            name=team_name,
+            created_by=request.user,
+            is_private=is_private,
+        )
+
+        # Add the creator as a member
+        TeamUser.objects.create(team=team, user=request.user)
+
+        return Response({
+            "message": "Team created successfully",
+            "team_id": team.id,
+            "team_name": team.name
+        }, status=status.HTTP_201_CREATED)

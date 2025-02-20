@@ -6,7 +6,6 @@ from django.utils import timezone
 
 class Team(models.Model):
     name = models.CharField(max_length=255)
-    description = models.TextField(blank=True, null=True)
     is_private = models.BooleanField(default=True)
 
 class TeamProject(models.Model):
