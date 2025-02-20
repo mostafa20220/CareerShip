@@ -53,7 +53,8 @@ class Task(models.Model):
     )
     name = models.CharField(max_length=255)
     slug = models.SlugField(unique=True)
-    duration = models.TimeField()
+    description = models.TextField()
+    duration_in_days = models.PositiveSmallIntegerField(default=1)
     created_at = models.DateTimeField(auto_now_add=True)
 
 

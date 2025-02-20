@@ -14,6 +14,12 @@ class CategoryAdmin(admin.ModelAdmin):
     search_fields = ("name",)
 
 
+
+class TaskInline(admin.TabularInline):  # or use StackedInline for a different look
+    model = Task
+    extra = 1  # Number of empty forms to display
+
+
 @admin.register(Project)
 class ProjectAdmin(admin.ModelAdmin):
     fields = ("name", "category", "difficulty_level", "is_premium" , "max_team_size")
@@ -28,11 +34,12 @@ class ProjectAdmin(admin.ModelAdmin):
     )
     list_filter = ("category", "difficulty_level", "is_premium")
     search_fields = ("name", "slug")
+    inlines = [TaskInline]
 
 
 @admin.register(Task)
 class TaskAdmin(admin.ModelAdmin):
-    list_display = ("name", "project", "difficulty_level", "duration")
+    list_display = ("name", "project", "difficulty_level", "duration_in_days")
     list_filter = ("project", "difficulty_level")
     search_fields = ("name", "slug")
 
