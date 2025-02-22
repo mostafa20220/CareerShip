@@ -9,7 +9,9 @@ from .models import Invitation
 from teams.models import Team  # Assuming you have a Team model
 from users.models import User  # Assuming you have a User model
 from rest_framework.permissions import IsAuthenticated
+from rest_framework import generics
 
+from .serializers import TeamSerializer
 
 
 class InvitationDetailView(APIView):
@@ -51,31 +53,10 @@ class AcceptInvitationView(APIView):
 #
 
 
-class CreateTeamView(APIView):
+class CreateTeamView(generics.CreateAPIView):
     permission_classes = [IsAuthenticated]
+    queryset = Team.objects.all()
+    serializer_class = TeamSerializer
 
-    def post(self, request):
-        """Creates a new team and adds the creator as a member."""
-        team_name = request.data.get("name")
-        is_private = request.data.get("is_private") or True
-        project = request.data.get("project")
-
-        if not team_name:
-            return Response({"error": "Team name is required"}, status=status.HTTP_400_BAD_REQUEST)
-
-
-        # Create the team
-        team = Team.objects.create(
-            name=team_name,
-            created_by=request.user,
-            is_private=is_private,
-        )
-
-        # Add the creator as a member
-        TeamUser.objects.create(team=team, user=request.user)
-
-        return Response({
-            "message": "Team created successfully",
-            "team_id": team.id,
-            "team_name": team.name
-        }, status=status.HTTP_201_CREATED)
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)

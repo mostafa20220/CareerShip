@@ -3,23 +3,26 @@ from django.db import models
 from django.urls import reverse
 import  datetime as dt
 from django.utils import timezone
+from users.models import User
 
 class Team(models.Model):
     name = models.CharField(max_length=255)
     is_private = models.BooleanField(default=True)
+    created_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='teams')
+    created_at = models.DateTimeField(auto_now_add=True)
 
 class TeamProject(models.Model):
-    project = models.ForeignKey('projects.Project', on_delete=models.CASCADE, db_index=True)
-    team = models.ForeignKey('teams.Team', on_delete=models.CASCADE, db_index=True)
+    project = models.ForeignKey('projects.Project', on_delete=models.CASCADE, db_index=True, related_name='team_projects')
+    team = models.ForeignKey('teams.Team', on_delete=models.CASCADE, db_index=True, related_name='team_projects')
 
 class TeamUser(models.Model):
-    team = models.ForeignKey('teams.Team', on_delete=models.CASCADE, db_index=True)
-    user = models.ForeignKey('users.User', on_delete=models.CASCADE, db_index=True)
+    team = models.ForeignKey('teams.Team', on_delete=models.CASCADE, db_index=True, related_name='teams')
+    user = models.ForeignKey('users.User', on_delete=models.CASCADE, db_index=True, related_name='team_users')
 
 
 class Invitation(models.Model):
     team = models.ForeignKey('teams.Team', on_delete=models.CASCADE, db_index=True, related_name='invitations')
-    created_by = models.ForeignKey('users.User', on_delete=models.CASCADE)
+    created_by = models.ForeignKey('users.User', on_delete=models.CASCADE, related_name='invitations')
     created_at = models.DateTimeField(auto_now_add=True ,db_index=True)
     expires_in_days = models.PositiveSmallIntegerField(default=3)
 
