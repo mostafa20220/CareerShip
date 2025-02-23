@@ -11,7 +11,7 @@ from users.models import User  # Assuming you have a User model
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import generics
 
-from .serializers import TeamSerializer
+from .serializers import TeamSerializer, LeaveTeamSerializer
 
 
 class InvitationDetailView(APIView):
@@ -60,3 +60,24 @@ class CreateTeamView(generics.CreateAPIView):
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
+
+
+class LeaveTeamView(APIView):
+    """Allows a user to leave a team."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        serializer = LeaveTeamSerializer(data=request.data, context={'request': request})
+
+        # Run serializer validation
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        # Get validated team_id
+        team_id = serializer.validated_data['team_id']
+        user = request.user
+
+        # Remove the user from the team
+        TeamUser.objects.filter(team_id=team_id, user=user).delete()
+
+        return Response({"message": "You have successfully left the team."}, status=status.HTTP_200_OK)

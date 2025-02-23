@@ -37,3 +37,31 @@ class TeamSerializer(serializers.ModelSerializer):
         #project = Project.objects.get(id=project_id)
         TeamProject.objects.create(team=team , project=project)
         return  team
+
+
+class LeaveTeamSerializer(serializers.Serializer):
+    team_id = serializers.IntegerField(required=True)
+
+    def validate_team_id(self, value):
+        """Ensure the team exists and the user is a member before leaving."""
+        user = self.context['request'].user
+
+        # Check if the team exists
+        try:
+            team = Team.objects.get(id=value)
+        except Team.DoesNotExist:
+            raise serializers.ValidationError("Team not found.")
+
+        # Check if the user is in the team
+        if not TeamUser.objects.filter(team=team, user=user).exists():
+            raise serializers.ValidationError("You are not a member of this team.")
+
+        # Check if the user is the only member
+        #if TeamUser.objects.filter(team=team).count() == 1:
+            # raise serializers.ValidationError("You cannot leave because you are the only member.")
+
+        # Check if the user is the team creator
+        #if team.created_by == user:
+            # raise serializers.ValidationError("You cannot leave as the team creator. Transfer ownership first.")
+
+        return value

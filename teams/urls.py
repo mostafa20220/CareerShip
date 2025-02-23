@@ -6,4 +6,5 @@ urlpatterns = [
     # path('invite/<int:pk>/', views.InvitationDetailView, name='invitation_detail'),
     # path('accept/<int:pk>/', views.AcceptInvitationView, name='accept_invitation'),
     path('create/' , views.CreateTeamView.as_view(), name='create_team' ),
+    path('leave/' , views.LeaveTeamView.as_view(), name='leave_team' ),
 ]
