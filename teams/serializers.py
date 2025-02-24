@@ -134,3 +134,8 @@ class InvitationSerializer(serializers.ModelSerializer):
         )
 
 
+class UpdateTeamSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Team
+        fields = ["name", "is_private"]
+

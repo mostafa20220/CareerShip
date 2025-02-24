@@ -2,6 +2,7 @@ from django.shortcuts import render
 
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework import status
@@ -11,8 +12,8 @@ from users.models import User  # Assuming you have a User model
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import generics
 
-from .serializers import TeamSerializer, LeaveTeamSerializer, TeamDetailSerializer,  \
-    InvitationSerializer
+from .serializers import TeamSerializer, LeaveTeamSerializer, TeamDetailSerializer, \
+    InvitationSerializer, UpdateTeamSerializer
 
 from .models import TeamUser
 from .services import is_team_member, add_team_member
@@ -33,6 +34,21 @@ class CreateTeamView(generics.CreateAPIView):
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
+
+class UpdateTeamView(generics.UpdateAPIView):
+    """API endpoint to update team details (only name & is_private)."""
+    serializer_class = UpdateTeamSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_object(self):
+        """Get the team and ensure the requesting user is the owner."""
+        team_id = self.kwargs["team_id"]
+        team = get_object_or_404(Team, id=team_id)
+
+        if team.created_by != self.request.user:
+            raise PermissionDenied("You are not allowed to update this team.")
+
+        return team
 
 
 class LeaveTeamView(APIView):
