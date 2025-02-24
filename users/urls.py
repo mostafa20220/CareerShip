@@ -1,5 +1,7 @@
 
 from django.urls import path
+
+from teams.views import TeamDetailView
 from users.views import LogoutView, RegisterView, ProfileView
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
