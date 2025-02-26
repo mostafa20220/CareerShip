@@ -29,8 +29,8 @@ class Invitation(models.Model):
 
 
     def is_expired(self):
-         expiration_date = self.created_at + dt.timedelta(days=self.expires_in_days)
-         return timezone.now() > expiration_date
+        expiration_date = self.created_at + dt.timedelta(days=self.expires_in_days)
+        return timezone.now() > expiration_date
 
     def __str__(self):
         return f"Invitation created at {self.created_at}, expires in {self.expires_in_days} days"
