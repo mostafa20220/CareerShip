@@ -24,5 +24,6 @@ urlpatterns = [
     path("<int:pk>/", views.TeamDetailUpdateView.as_view(), name="team-get-update-detail"),
     path("<int:pk>/invite/", views.GenerateInviteView.as_view(), name="generate-invitation"),
     path("invite/<int:pk>/", views.InvitationDetailView.as_view(), name="invitation-detail"),
-    path("invite/<int:invite_id>/accept/", views.AcceptInvitationView.as_view(), name="accept-invitation")
+    path("invite/<int:invite_id>/accept/", views.AcceptInvitationView.as_view(), name="accept-invitation"),
+    path("", views.ListTeams.as_view(), name='list-teams'),
 ]

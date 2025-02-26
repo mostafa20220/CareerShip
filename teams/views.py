@@ -1,5 +1,4 @@
-from django.shortcuts import render
-
+from django.db.models import Count, F
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework.exceptions import PermissionDenied
@@ -17,6 +16,7 @@ from .serializers import TeamSerializer, LeaveTeamSerializer, TeamDetailSerializ
 
 from .models import TeamUser
 from .services import is_team_member, add_team_member, is_max_team_size
+from utils.pagination import StandardPagination
 
 
 class TeamDetailUpdateView(generics.RetrieveUpdateAPIView):
@@ -124,3 +124,19 @@ class AcceptInvitationView(generics.GenericAPIView):
         add_team_member(team=invitation.team, user=request.user)
 
         return Response({"message": "You have successfully joined the team."}, status=status.HTTP_200_OK)
+
+
+class ListTeams(generics.ListAPIView):
+    """API endpoint to return a paginated response of all teams that are public and not full"""
+
+    serializer_class = TeamSerializer
+    permission_classes = [IsAuthenticated]
+    pagination_class = StandardPagination
+
+    def get_queryset(self):
+        """Filter teams that are private or full"""
+        return (
+            Team.objects.filter(is_private=False)
+            .annotate(member_count=Count('team_users'))
+            .filter(member_count__lt=F('team_projects__project__max_team_size'))
+        )
