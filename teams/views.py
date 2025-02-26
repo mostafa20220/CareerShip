@@ -19,12 +19,25 @@ from .models import TeamUser
 from .services import is_team_member, add_team_member
 
 
-class TeamDetailView(generics.RetrieveAPIView):
-    """API endpoint to retrieve team details along with project name and team members."""
+class TeamDetailUpdateView(generics.RetrieveUpdateAPIView):
+    """ API View to retrieve or update team details"""
     queryset = Team.objects.all()
     serializer_class = TeamDetailSerializer
-    permission_classes = [IsAuthenticated]  # Only authenticated users can access
-    lookup_field = "pk"  # Retrieve by team ID
+    permission_classes = [IsAuthenticated]
+    lookup_field = "pk"
+
+    def get_serializer_class(self):
+        if self.request.method == "PUT":
+            return UpdateTeamSerializer
+        return TeamDetailSerializer
+    
+    def update(self, *args, **kwargs):
+        """Ensure only the team owner can update"""
+        team = self.get_object()
+
+        if team.created_by != self.request.user:
+            raise PermissionDenied("You are not allowed to update this team!")
+        return super().update(self.request, *args, **kwargs)
 
 
 class CreateTeamView(generics.CreateAPIView):
@@ -34,21 +47,6 @@ class CreateTeamView(generics.CreateAPIView):
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
-
-class UpdateTeamView(generics.UpdateAPIView):
-    """API endpoint to update team details (only name & is_private)."""
-    serializer_class = UpdateTeamSerializer
-    permission_classes = [IsAuthenticated]
-
-    def get_object(self):
-        """Get the team and ensure the requesting user is the owner."""
-        team_id = self.kwargs["team_id"]
-        team = get_object_or_404(Team, id=team_id)
-
-        if team.created_by != self.request.user:
-            raise PermissionDenied("You are not allowed to update this team.")
-
-        return team
 
 
 class LeaveTeamView(APIView):
