@@ -87,7 +87,7 @@ class TeamDetailSerializer(serializers.ModelSerializer):
         """Get a list of usernames in the team."""
         return [
             f"{team_user.user.first_name} {team_user.user.last_name}".strip()
-            for team_user in obj.teams.select_related("user")
+            for team_user in obj.team_users.select_related("user")
         ]
 
 
