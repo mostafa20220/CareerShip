@@ -16,7 +16,7 @@ from .serializers import TeamSerializer, LeaveTeamSerializer, TeamDetailSerializ
     InvitationSerializer, UpdateTeamSerializer
 
 from .models import TeamUser
-from .services import is_team_member, add_team_member
+from .services import is_team_member, add_team_member, is_max_team_size
 
 
 class TeamDetailUpdateView(generics.RetrieveUpdateAPIView):
@@ -116,6 +116,9 @@ class AcceptInvitationView(generics.GenericAPIView):
         # Check if user is already in the team
         if is_team_member(team=invitation.team,user=request.user):
             return Response({"error": "You are already a member of this team."}, status=status.HTTP_400_BAD_REQUEST)
+
+        if is_max_team_size(team=invitation.team, project=invitation.team.team_projects.first().project):
+            return Response({"error": "Maximum team size is reached for this project!"})
 
         # Add user to the team
         add_team_member(team=invitation.team, user=request.user)
