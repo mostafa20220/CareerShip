@@ -9,10 +9,9 @@ urlpatterns = [
     path('silk/', include('silk.urls', namespace='silk')),
     path('admin/', admin.site.urls),
     path('api/v1/', include([
+        path('', include('projects.urls')),
         path('auth/', include('users.urls')),
-        path('projects/', include('projects.urls')),
         path('certificates/', include('certificates.urls')),
-        path('auth/' , include('users.urls')),
         path('teams/' , include('teams.urls')),
     ]) ),
 

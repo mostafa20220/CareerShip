@@ -1,7 +1,7 @@
 from django.urls import reverse
 from rest_framework import serializers
-from teams.models import Team, TeamUser, TeamProject, Invitation
-from projects.models import Project
+from teams.models import Team, TeamProject, Invitation
+from projects.models.projects import Project
 from .services import *
 
 class TeamSerializer(serializers.ModelSerializer):
