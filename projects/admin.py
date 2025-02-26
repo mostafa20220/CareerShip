@@ -1,5 +1,10 @@
 from django.contrib import admin
-from .models import *
+
+from projects.models.categories_difficulties import DifficultyLevel, Category
+from projects.models.prerequisites import Prerequisite, TaskPrerequisite
+from projects.models.projects import Project, UserProject
+from projects.models.submission import Submission
+from projects.models.tasks_endpoints import Endpoint, Task
 
 
 @admin.register(DifficultyLevel)
@@ -13,11 +18,16 @@ class CategoryAdmin(admin.ModelAdmin):
     list_display = ("name", "description")
     search_fields = ("name",)
 
+@admin.register(Endpoint)
+class EndpointAdmin(admin.ModelAdmin):
+    list_display = ("task", "method", "path")
+    list_filter = ("method",)
+    search_fields = ("path",)
 
 
 class TaskInline(admin.TabularInline):  # or use StackedInline for a different look
     model = Task
-    extra = 1  # Number of empty forms to display
+    extra = 1
 
 
 @admin.register(Project)
@@ -36,12 +46,16 @@ class ProjectAdmin(admin.ModelAdmin):
     search_fields = ("name", "slug")
     inlines = [TaskInline]
 
+class EndpointInline(admin.TabularInline):
+    model = Endpoint
+    extra = 1
 
 @admin.register(Task)
 class TaskAdmin(admin.ModelAdmin):
     list_display = ("name", "project", "difficulty_level", "duration_in_days")
     list_filter = ("project", "difficulty_level")
     search_fields = ("name", "slug")
+    inlines = [EndpointInline]
 
 
 @admin.register(Prerequisite)
@@ -55,17 +69,11 @@ class TaskPrerequisiteAdmin(admin.ModelAdmin):
     list_display = ("task", "prerequisite")
 
 
-@admin.register(Endpoint)
-class EndpointAdmin(admin.ModelAdmin):
-    list_display = ("task", "method", "path")
-    list_filter = ("method",)
-    search_fields = ("path",)
-
 
 @admin.register(Submission)
 class SubmissionAdmin(admin.ModelAdmin):
-    list_display = ("task", "user", "team", "is_pass", "created_at")
-    list_filter = ("is_pass", "created_at")
+    list_display = ("task", "user", "team", "status","passed_percentage","execution_logs","feedback" ,"deployment_url", "github_url","completed_at","created_at" )
+    list_filter = ("status", "created_at")
     search_fields = ("user__username", "team__name")
 
 

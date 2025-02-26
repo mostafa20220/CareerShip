@@ -1,7 +1,7 @@
 from django.contrib import admin
 from teams.models import *
-from projects.models import *
-from users.models import User
+
+
 # Register your models here.
 
 
