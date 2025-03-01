@@ -1,0 +1,41 @@
+from django.db import models
+
+PENDING = 'pending'
+PASSED  = 'passed'
+FAILED  = 'failed'
+status_choices = (
+    (PENDING, 'Pending'),
+    (PASSED, 'Passed'),
+    (FAILED, 'Failed'),
+)
+
+class Submission(models.Model):
+    project = models.ForeignKey('Project', on_delete=models.CASCADE, db_index=True, related_name='submissions')
+    task = models.ForeignKey('Task', on_delete=models.CASCADE, db_index=True, related_name='submissions')
+    user = models.ForeignKey('users.User', on_delete=models.CASCADE, db_index=True, related_name="submissions")
+    team = models.ForeignKey(
+        'teams.Team', on_delete=models.CASCADE, null=True, blank=True, db_index=True,related_name='submissions'
+    )
+
+    status = models.CharField(choices=status_choices, max_length=50, default=PENDING, db_index=True)
+
+    passed_tests = models.PositiveSmallIntegerField(default=0)
+    failed_test_index = models.PositiveSmallIntegerField(default=0,null=True)
+    passed_percentage = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+
+    execution_logs = models.JSONField(blank=True, null=True)
+    feedback = models.JSONField(blank=True, null=True)
+
+    deployment_url = models.URLField(null=True, blank=True)
+    github_url = models.URLField(null=True, blank=True)
+
+    completed_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self ):
+        fields = [self.status, self.deployment_url, self.completed_at]
+        return " - ".join([str(field) for field in fields if field is not None])
+

@@ -12,6 +12,7 @@ USER_TYPE_CHOICES = (
 )
 
 class CustomUserManager(BaseUserManager):
+
     def create(self, email, password=None, **extra_fields):
         if not email:
             raise ValueError("The Email field must be set")
@@ -54,6 +55,12 @@ class User(AbstractBaseUser, PermissionsMixin):
     REQUIRED_FIELDS = ['first_name', 'last_name']
 
     objects = CustomUserManager()
+
+    def is_student(self):
+        return self.user_type == STUDENT
+
+    def is_admin(self):
+        return self.user_type == ADMIN
 
     def __str__(self):
         return self.email

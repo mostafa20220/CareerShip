@@ -14,6 +14,13 @@ DEBUG = config('DEBUG', default=False, cast=bool)
 ALLOWED_HOSTS = config('ALLOWED_HOSTS', cast=lambda v: [s.strip() for s in v.split(' ')])
 APPEND_SLASH=True
 
+# CELERY SETTINGS
+CELERY_BROKER_URL = 'redis://redis:6379/0'
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+
+
+
 # Email settings
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 # EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'

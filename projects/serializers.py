@@ -1,5 +1,9 @@
 from rest_framework import serializers
-from .models import Category, Project, Task
+
+from projects.models.categories_difficulties import Category, DifficultyLevel
+from projects.models.projects import Project
+from projects.models.submission import Submission
+from projects.models.tasks_endpoints import Task
 
 
 class CategorySerializer(serializers.ModelSerializer):
@@ -15,7 +19,7 @@ class TaskSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Task
-        fields = ["id", "name", "slug", "difficulty_level", "duration", "created_at"]
+        fields = ["id", "name", "slug", "difficulty_level", "created_at"]
 
     def get_difficulty_level(self, obj):
         return obj.difficulty_level.name
@@ -42,10 +46,46 @@ class ProjectSerializer(serializers.ModelSerializer):
             "tasks",
         ]
 
-    # def get_difficulty_level(self, obj):
-    #     return obj.difficulty_level.name
-    #
-    # def get_category(self, obj):
-    #     return obj.category.name
+
+class DifficultyLevelSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = DifficultyLevel
+        fields = ["id", "name", "description"]
 
 
+class TaskDetailsSerializer(serializers.ModelSerializer):
+    difficulty_level = serializers.StringRelatedField()
+    created_at = serializers.DateTimeField(format="%d %b %Y")
+
+    class Meta:
+        model = Task
+        fields = [
+            "id",
+            "name",
+            "slug",
+            "description",
+            "duration_in_days",
+            "tests",
+            "difficulty_level",
+            "created_at",
+        ]
+
+class SubmissionDetailsSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Submission
+        fields = "__all__"
+
+class ListTaskSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Task
+        fields = "__all__"
+
+
+class ListProjectSubmissionsSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Submission
+        fields = "__all__"
