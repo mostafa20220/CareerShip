@@ -9,13 +9,13 @@ from projects.models.tasks_endpoints import Endpoint, Task
 
 @admin.register(DifficultyLevel)
 class DifficultyLevelAdmin(admin.ModelAdmin):
-    list_display = ("name", "description")
+    list_display = ("name",)
     search_fields = ("name",)
 
 
 @admin.register(Category)
 class CategoryAdmin(admin.ModelAdmin):
-    list_display = ("name", "description")
+    list_display = ("name",)
     search_fields = ("name",)
 
 @admin.register(Endpoint)

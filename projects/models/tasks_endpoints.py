@@ -8,9 +8,10 @@ class Task(models.Model):
     )
     difficulty_level = models.ForeignKey(
         'DifficultyLevel',
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,
         db_index=True,
         related_name='tasks',
+        null=True,
     )
     name = models.CharField(max_length=255)
     slug = models.SlugField(unique=True)
