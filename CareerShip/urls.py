@@ -12,7 +12,6 @@ urlpatterns = [
         path('auth/', include('users.urls')),
         path('projects/', include('projects.urls')),
         path('certificates/', include('certificates.urls')),
-        path('auth/' , include('users.urls')),
         path('teams/' , include('teams.urls')),
     ]) ),
 
