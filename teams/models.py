@@ -3,17 +3,18 @@ from django.db import models
 from django.urls import reverse
 import  datetime as dt
 from django.utils import timezone
+
+from projects.models import Project
 from users.models import User
 
 class Team(models.Model):
     name = models.CharField(max_length=255)
     is_private = models.BooleanField(default=True)
-    created_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='teams')
+    admin = models.ForeignKey(User, on_delete=models.CASCADE, related_name='teams')
     created_at = models.DateTimeField(auto_now_add=True)
+    active = models.BooleanField(default=True)  # false if the team already finished the project
+    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='teams')
 
-class TeamProject(models.Model):
-    project = models.ForeignKey('projects.Project', on_delete=models.CASCADE, db_index=True, related_name='team_projects')
-    team = models.ForeignKey('teams.Team', on_delete=models.CASCADE, db_index=True, related_name='team_projects')
 
 class TeamUser(models.Model):
     team = models.ForeignKey('teams.Team', on_delete=models.CASCADE, db_index=True, related_name='teams')
