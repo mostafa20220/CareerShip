@@ -3,6 +3,40 @@ from django.core.exceptions import ValidationError
 from teams.models import TeamUser, Team
 
 
+
+from rest_framework.exceptions import ValidationError
+from .models import Invitation
+
+
+
+class InvitationService:
+    """Service to handle the logic of accepting an invitation and adding a user to the team."""
+
+    @staticmethod
+    def accept_invitation(invitation, user):
+        """Accept an invitation and add the user to the team."""
+
+        if not invitation:
+            raise ValidationError("Invitation not found.")
+
+        # Check if invitation is expired
+        if invitation.is_expired():
+            raise ValidationError("Invitation has expired.")
+
+        # Check if user is already in the team
+        if is_team_member(team=invitation.team, user=user):
+            raise ValidationError("You are already a member of this team.")
+
+        # Add the user to the team
+        add_team_member(team=invitation.team, user=user)
+
+        return {"error": "You have successfully joined the team."}
+
+
+
+
+
+
 def is_team_member(user, team):
     """Check if a user is a member of a given team."""
     return TeamUser.objects.filter(team=team, user=user).exists()
