@@ -6,6 +6,8 @@ from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework import status
+
+from utils.pagination import StandardPagination
 from .models import Invitation
 from teams.models import Team  # Assuming you have a Team model
 from users.models import User  # Assuming you have a User model
@@ -111,14 +113,14 @@ class AcceptInvitationView(generics.GenericAPIView):
 class ListTeams(generics.ListAPIView):
     """API endpoint to return a paginated response of all teams that are public and not full"""
 
-    serializer_class = TeamSerializer
+    serializer_class = TeamDetailSerializer
     permission_classes = [IsAuthenticated]
     pagination_class = StandardPagination
 
     def get_queryset(self):
         """Filter teams that are private or full"""
         return (
-            Team.objects.filter(is_private=False)
+            Team.objects.filter(is_private=False , active=True)
             .annotate(member_count=Count('team_users'))
-            .filter(member_count__lt=F('team_projects__project__max_team_size'))
+            .filter(member_count__lt=F('project__max_team_size'))
         )
