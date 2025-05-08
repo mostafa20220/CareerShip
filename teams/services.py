@@ -41,7 +41,7 @@ class InvitationService:
 
 def is_max_team_size(team, project):
     """Checks if a team size exceeds the maximum team size of a project"""
-    return team.team_projects.count() >= project.max_team_size
+    return TeamUser.objects.filter(team=team).count() >= project.max_team_size
 
 
 
