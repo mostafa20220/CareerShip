@@ -1,4 +1,6 @@
-from teams.models import TeamUser
+from django.core.exceptions import ValidationError
+
+from teams.models import TeamUser, Team
 
 
 def is_team_member(user, team):
@@ -7,11 +9,58 @@ def is_team_member(user, team):
 
 
 
-def user_team_for_project(user, project):
-    """Check if a user is a member of a team in this project."""
-    return TeamUser.objects.filter(team__team_projects__project=project, user=user)
+def get_user_teams_for_project(user, project):
+    """returns the teams that the user is in for this project."""
+    return TeamUser.objects.filter(team__project=project, user=user)
+
+
+
+def is_user_on_active_team_for_project(user, project):
+    """Check if a user is on a team for a given project."""
+    return get_user_teams_for_project(user,project).filter(team__active=True).exists()
+
+
+def is_user_team_admin(user, team):
+    """Check if a user is a team admin for a given team."""
+    if not user or not team:
+        return False
+    return team.admin == user
+
+
+def team_members(team):
+    return TeamUser.objects.filter(team=team)
+
 
 
 def add_team_member(user, team):
     """Add a user to a team in this project."""
     TeamUser.objects.create(team=team, user=user)
+
+def create_team(team_name , user , project):
+    """Create a team for this project."""
+    team = Team.objects.create(name=team_name, admin=user , project=project)
+    # link the created team with the user and the project
+    TeamUser.objects.create(team=team, user=user)
+
+    return team
+
+
+def remove_user_from_team(user, team):
+    """Remove a user from a team."""
+    TeamUser.objects.filter(team=team, user=user).delete()
+
+
+def check_if_user_can_leave_team(user, team):
+    """Checks if a user is allowed to leave a team, user can't leave if they are not a team member , the admin of the team, only member of that team"""
+
+    if not is_team_member(user, team=team):
+        raise ValidationError("You are not a member of this team.")
+
+    if team_members(team).count() == 1:
+        raise ValidationError(
+            "You are the only member of this team. If you want to leave, please delete the team instead."
+        )
+
+    if is_user_team_admin(user=user, team=team):
+        raise ValidationError(
+            "You are the admin of this team. To leave, you must first assign admin rights to another team member")

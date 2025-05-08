@@ -2,6 +2,7 @@ from django.shortcuts import render
 
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
+from django.views import View
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -12,19 +13,17 @@ from users.models import User  # Assuming you have a User model
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import generics
 
+from .permissions import CanViewTeam, IsTeamAdmin
 from .serializers import TeamSerializer, LeaveTeamSerializer, TeamDetailSerializer, \
     InvitationSerializer, UpdateTeamSerializer
 
 from .models import TeamUser
-from .services import is_team_member, add_team_member
+from .services import is_team_member, add_team_member, remove_user_from_team
 
 
-class TeamDetailView(generics.RetrieveAPIView):
-    """API endpoint to retrieve team details along with project name and team members."""
-    queryset = Team.objects.all()
-    serializer_class = TeamDetailSerializer
-    permission_classes = [IsAuthenticated]  # Only authenticated users can access
-    lookup_field = "pk"  # Retrieve by team ID
+
+
+
 
 
 class CreateTeamView(generics.CreateAPIView):
@@ -35,20 +34,6 @@ class CreateTeamView(generics.CreateAPIView):
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
 
-class UpdateTeamView(generics.UpdateAPIView):
-    """API endpoint to update team details (only name & is_private)."""
-    serializer_class = UpdateTeamSerializer
-    permission_classes = [IsAuthenticated]
-
-    def get_object(self):
-        """Get the team and ensure the requesting user is the owner."""
-        team_id = self.kwargs["team_id"]
-        team = get_object_or_404(Team, id=team_id)
-
-        if team.created_by != self.request.user:
-            raise PermissionDenied("You are not allowed to update this team.")
-
-        return team
 
 
 class LeaveTeamView(APIView):
@@ -62,14 +47,34 @@ class LeaveTeamView(APIView):
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        # Get validated team_id
-        team_id = serializer.validated_data['team_id']
+        team = serializer.validated_data['team']
         user = request.user
-
-        # Remove the user from the team
-        TeamUser.objects.filter(team_id=team_id, user=user).delete()
+        remove_user_from_team(user=user, team=team)
 
         return Response({"message": "You have successfully left the team."}, status=status.HTTP_200_OK)
+
+
+
+class TeamDetailView(generics.RetrieveUpdateAPIView):
+    """
+        API endpoint to retrieve and update team details.
+        - GET: Retrieve team details.
+        - PUT: Update team details.
+    """
+    queryset = Team.objects.all()
+    serializer_class = TeamDetailSerializer
+    permission_classes = [IsAuthenticated, CanViewTeam]  # Only authenticated users can access
+    lookup_field = "pk"  # Retrieve by team ID
+
+    def get_permissions(self):
+        """
+        Add IsTeamAdmin permission for update method only.
+        """
+        permissions = super().get_permissions()
+        if self.request.method == "PATCH":
+            # Add IsTeamAdmin permission for PATCH method
+            permissions.append(IsTeamAdmin())
+        return permissions
 
 
 
