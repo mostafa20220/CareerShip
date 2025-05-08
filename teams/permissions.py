@@ -14,3 +14,7 @@ class CanViewTeam(BasePermission):
 class IsTeamAdmin(BasePermission):
     def has_object_permission(self, request, view, obj):
         return obj.admin == request.user
+
+class IsTeamMember(BasePermission):
+    def has_object_permission(self, request, view, obj):
+        return is_team_member(user=request.user, team=obj)
