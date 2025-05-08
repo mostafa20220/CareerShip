@@ -2,6 +2,7 @@ from dataclasses import fields
 
 from django.urls import reverse
 from rest_framework import serializers
+from rest_framework.relations import PrimaryKeyRelatedField
 
 from projects.serializers import ProjectSerializer
 from teams.models import Team, TeamUser,  Invitation
@@ -86,7 +87,9 @@ class TeamDetailSerializer(serializers.ModelSerializer):
 
 
 
-class InvitationSerializer(serializers.ModelSerializer):
+
+class CreateInvitationSerializer(serializers.ModelSerializer):
+    created_by = serializers.HiddenField(default=serializers.CurrentUserDefault())
     invitation_url = serializers.SerializerMethodField()
 
     class Meta:
@@ -94,35 +97,19 @@ class InvitationSerializer(serializers.ModelSerializer):
         fields = ["id", "created_by", "created_at", "expires_in_days", "invitation_url"]
         read_only_fields = ["created_by", "created_at", "invitation_url"]
 
-    def validate(self, data):
-        """Ensure the user is a member of the team before generating an invite."""
-        user = self.context["request"].user
-        team = self.context["team"]
-
-        if not is_team_member(user, team):
-            raise serializers.ValidationError("You are not a member of this team.")
-
-        return data
-
     def get_invitation_url(self, obj):
-        """Generate the invitation URL."""
         request = self.context.get("request")
         if request:
             return request.build_absolute_uri(reverse("invitation-detail", kwargs={"pk": obj.pk}))
         return reverse("invitation-detail", kwargs={"pk": obj.pk})
 
-    def create(self, validated_data):
-        """Use the service function to create an invitation."""
-        user = self.context["request"].user
-        team = self.context["team"]
-        return Invitation.objects.create(
-            team=team,
-            created_by=user,
-        )
 
+class InvitationDetailSerializer(serializers.Serializer):
 
-class UpdateTeamSerializer(serializers.ModelSerializer):
+    team = TeamDetailSerializer()
     class Meta:
-        model = Team
-        fields = ["name", "is_private"]
+        model = Invitation
+        fields = ["id" , "created_by", "created_at", "expires_in_days", "team"]
+
+
 

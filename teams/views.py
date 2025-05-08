@@ -3,7 +3,7 @@ from django.shortcuts import render
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.views import View
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework import status
@@ -13,17 +13,12 @@ from users.models import User  # Assuming you have a User model
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import generics
 
-from .permissions import CanViewTeam, IsTeamAdmin
-from .serializers import TeamSerializer, LeaveTeamSerializer, TeamDetailSerializer, \
-    InvitationSerializer, UpdateTeamSerializer
+from .permissions import CanViewTeam, IsTeamAdmin, IsTeamMember
+from .serializers import TeamSerializer, LeaveTeamSerializer, TeamDetailSerializer,  \
+    CreateInvitationSerializer,InvitationDetailSerializer
 
 from .models import TeamUser
-from .services import is_team_member, add_team_member, remove_user_from_team
-
-
-
-
-
+from .services import is_team_member, add_team_member, remove_user_from_team, InvitationService
 
 
 class CreateTeamView(generics.CreateAPIView):
@@ -80,33 +75,23 @@ class TeamDetailView(generics.RetrieveUpdateAPIView):
 
 class GenerateInviteView(generics.CreateAPIView):
     """API endpoint to generate an invitation link for a team."""
-    serializer_class = InvitationSerializer
-    permission_classes = [IsAuthenticated]
-
-    def get_queryset(self):
-        """Limit queryset to invitations for the specified team."""
-        team_id = self.kwargs["team_id"]
-        return Invitation.objects.filter(team_id=team_id)
-
-    def get_serializer_context(self):
-        """Pass additional context to serializer."""
-        context = super().get_serializer_context()
-        team_id = self.kwargs["pk"]
-        team = get_object_or_404(Team, id=team_id)
-        context["team"] = team  # ✅ Fix: Pass team instance
-        return context
+    serializer_class = CreateInvitationSerializer
+    permission_classes = [IsAuthenticated , IsTeamMember]
 
     def perform_create(self, serializer):
         """Attach the team from the URL parameter and ensure the user is authorized."""
-        team = self.get_serializer_context()["team"]
-        serializer.save(team=team, created_by=self.request.user)
+        team_id = self.kwargs['pk']
+        team = get_object_or_404(Team, id=team_id)
+
+        serializer.save(team=team)
 
 
 class InvitationDetailView(generics.RetrieveAPIView):
     """API endpoint for retrieving a single invitation."""
     queryset = Invitation.objects.all()
-    serializer_class = InvitationSerializer
+    serializer_class = InvitationDetailSerializer
     permission_classes = [IsAuthenticated]
+
 
 class AcceptInvitationView(generics.GenericAPIView):
     """API endpoint to accept an invitation and join a team."""
@@ -116,15 +101,10 @@ class AcceptInvitationView(generics.GenericAPIView):
         """Accepts an invitation and adds the user to the team."""
         invitation = get_object_or_404(Invitation, id=invite_id)
 
-        # Check if invitation is expired
-        if invitation.is_expired():
-            return Response({"error": "Invitation has expired."}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            # Use the service class to handle the invitation acceptance logic
+            result = InvitationService.accept_invitation(invitation, request.user)
+            return Response(result, status=status.HTTP_200_OK)
 
-        # Check if user is already in the team
-        if is_team_member(team=invitation.team,user=request.user):
-            return Response({"error": "You are already a member of this team."}, status=status.HTTP_400_BAD_REQUEST)
-
-        # Add user to the team
-        add_team_member(team=invitation.team, user=request.user)
-
-        return Response({"message": "You have successfully joined the team."}, status=status.HTTP_200_OK)
+        except ValidationError as e:
+            return Response({"error": e.args[0]}, status=status.HTTP_400_BAD_REQUEST)
