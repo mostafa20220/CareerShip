@@ -32,7 +32,7 @@ class LogoutSerializer(serializers.Serializer):
 class RetrieveProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['first_name','last_name','email','user_type','is_premium','phone','avatar']
+        fields = [ 'id' , 'first_name','last_name','email','user_type','is_premium','phone','avatar']
 
 class UpdateProfileSerializer(serializers.ModelSerializer):
 
