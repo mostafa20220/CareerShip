@@ -1,5 +1,4 @@
-from django.shortcuts import render
-
+from django.db.models import Count, F
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.views import View
@@ -18,7 +17,7 @@ from .serializers import TeamSerializer, LeaveTeamSerializer, TeamDetailSerializ
     CreateInvitationSerializer,InvitationDetailSerializer
 
 from .models import TeamUser
-from .services import is_team_member, add_team_member, remove_user_from_team, InvitationService
+from .services import is_team_member, add_team_member, remove_user_from_team, InvitationService, is_max_team_size
 
 
 class CreateTeamView(generics.CreateAPIView):
@@ -28,7 +27,6 @@ class CreateTeamView(generics.CreateAPIView):
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
-
 
 
 class LeaveTeamView(APIView):
@@ -108,3 +106,19 @@ class AcceptInvitationView(generics.GenericAPIView):
 
         except ValidationError as e:
             return Response({"error": e.args[0]}, status=status.HTTP_400_BAD_REQUEST)
+          
+          
+class ListTeams(generics.ListAPIView):
+    """API endpoint to return a paginated response of all teams that are public and not full"""
+
+    serializer_class = TeamSerializer
+    permission_classes = [IsAuthenticated]
+    pagination_class = StandardPagination
+
+    def get_queryset(self):
+        """Filter teams that are private or full"""
+        return (
+            Team.objects.filter(is_private=False)
+            .annotate(member_count=Count('team_users'))
+            .filter(member_count__lt=F('team_projects__project__max_team_size'))
+        )

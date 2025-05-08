@@ -26,14 +26,22 @@ class InvitationService:
         # Check if user is already in the team
         if is_team_member(team=invitation.team, user=user):
             raise ValidationError("You are already a member of this team.")
+          
+        if is_max_team_size(team=invitation.team, project=invitation.team.project):
+            raise ValidationError("This team has reached its maximum size.")
 
         # Add the user to the team
         add_team_member(team=invitation.team, user=user)
 
         return {"error": "You have successfully joined the team."}
+      
 
 
 
+
+def is_max_team_size(team, project):
+    """Checks if a team size exceeds the maximum team size of a project"""
+    return team.team_projects.count() >= project.max_team_size
 
 
 
@@ -98,3 +106,4 @@ def check_if_user_can_leave_team(user, team):
     if is_user_team_admin(user=user, team=team):
         raise ValidationError(
             "You are the admin of this team. To leave, you must first assign admin rights to another team member")
+
