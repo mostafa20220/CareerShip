@@ -30,16 +30,16 @@ services:
       - redis
       - django
     
-    django:
-      build: .
-      volumes:
-        - .:/code
-      ports:
-        - "8000:8001"
-      depends_on:
-        - db
-      env_file:
-        - ./.env
-      restart: unless-stopped
+  django:
+    build: .
+    volumes:
+      - .:/code
+    ports:
+      - "8000:8001"
+    depends_on:
+      - db
+    env_file:
+      - ./.env
+    restart: unless-stopped
 volumes:
     careershipdb:

@@ -4,7 +4,7 @@ from django.urls import reverse
 import  datetime as dt
 from django.utils import timezone
 
-from projects.models import Project
+from projects.models.projects import Project
 from users.models import User
 
 class Team(models.Model):
