@@ -19,11 +19,13 @@ teams/invite/invite_id/accept -> accept the invitation,
 
 
 urlpatterns = [
-    path('create/' , views.CreateTeamView.as_view(), name='create_team' ),
+    path('' , views.CreateTeamView.as_view(), name='create_team' ),
     path('leave/' , views.LeaveTeamView.as_view(), name='leave_team' ),
-    path("<int:team_id>/", views.UpdateTeamView.as_view(), name="update-team"),
     path("<int:pk>/", views.TeamDetailView.as_view(), name="team-detail"),
+    path('<int:team_id>/change-admin' , views.ChangeTeamAdminView.as_view(), name='change_team_admin' ),
+    path('list/', views.ListTeams.as_view(), name='list-create-teams'),
+    # invitations URLs
     path("<int:pk>/invite/", views.GenerateInviteView.as_view(), name="generate-invitation"),
     path("invite/<int:pk>/", views.InvitationDetailView.as_view(), name="invitation-detail"),
-    path("invite/<int:invite_id>/accept/", views.AcceptInvitationView.as_view(), name="accept-invitation")
+    path("invite/<int:invite_id>/accept/", views.AcceptInvitationView.as_view(), name="accept-invitation"),
 ]
