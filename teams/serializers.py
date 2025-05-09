@@ -7,6 +7,7 @@ from rest_framework.relations import PrimaryKeyRelatedField
 from projects.serializers import ProjectSerializer
 from teams.models import Team, TeamUser,  Invitation
 from projects.models import Project
+from users.models import User
 from users.serializers import RetrieveProfileSerializer
 from .services import *
 from django.core.exceptions import ValidationError as DjangoValidationError
@@ -87,6 +88,19 @@ class TeamDetailSerializer(serializers.ModelSerializer):
        }
 
 
+
+class ChangeTeamAdminSerializer(serializers.Serializer):
+    new_admin = serializers.PrimaryKeyRelatedField(required=True , queryset=User.objects.all())
+
+
+    def save(self):
+        team = self.context['team']
+        new_admin = self.validated_data['new_admin']
+        try:
+            change_team_admin(team, new_admin)
+        except ValidationError as e:
+            raise serializers.ValidationError({"error": e.args[0]})
+        return new_admin
 
 
 class CreateInvitationSerializer(serializers.ModelSerializer):

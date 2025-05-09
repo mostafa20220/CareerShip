@@ -22,6 +22,7 @@ urlpatterns = [
     path('' , views.CreateTeamView.as_view(), name='create_team' ),
     path('leave/' , views.LeaveTeamView.as_view(), name='leave_team' ),
     path("<int:pk>/", views.TeamDetailView.as_view(), name="team-detail"),
+    path('<int:team_id>/change-admin' , views.ChangeTeamAdminView.as_view(), name='change_team_admin' ),
     path('list/', views.ListTeams.as_view(), name='list-create-teams'),
     # invitations URLs
     path("<int:pk>/invite/", views.GenerateInviteView.as_view(), name="generate-invitation"),

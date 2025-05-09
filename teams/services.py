@@ -107,3 +107,14 @@ def check_if_user_can_leave_team(user, team):
         raise ValidationError(
             "You are the admin of this team. To leave, you must first assign admin rights to another team member")
 
+def change_team_admin(team , new_admin):
+    """Change the admin of a team."""
+    if not is_team_member(team=team, user=new_admin):
+        raise ValidationError("The user is not a member of this team.")
+
+    if team.admin == new_admin:
+        raise ValidationError("You are already the admin of this team.")
+
+    team.admin = new_admin
+    team.save()
+    return team

@@ -15,11 +15,12 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework import generics
 
 from .permissions import CanViewTeam, IsTeamAdmin, IsTeamMember
-from .serializers import TeamSerializer, LeaveTeamSerializer, TeamDetailSerializer,  \
-    CreateInvitationSerializer,InvitationDetailSerializer
+from .serializers import TeamSerializer, LeaveTeamSerializer, TeamDetailSerializer, \
+    CreateInvitationSerializer, InvitationDetailSerializer, ChangeTeamAdminSerializer
 
 from .models import TeamUser
-from .services import is_team_member, add_team_member, remove_user_from_team, InvitationService, is_max_team_size
+from .services import is_team_member, add_team_member, remove_user_from_team, InvitationService, is_max_team_size, \
+    change_team_admin
 
 
 class CreateTeamView(generics.CreateAPIView):
@@ -71,6 +72,16 @@ class TeamDetailView(generics.RetrieveUpdateAPIView):
             permissions.append(IsTeamAdmin())
         return permissions
 
+class ChangeTeamAdminView(APIView):
+    permission_classes = [IsAuthenticated, IsTeamAdmin]
+
+    def post(self , request , team_id):
+        team = get_object_or_404(Team, pk=team_id)
+        self.check_object_permissions(request, team)
+        serializer = ChangeTeamAdminSerializer(data=request.data, context={'team': team})
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
 
 
 class GenerateInviteView(generics.CreateAPIView):
