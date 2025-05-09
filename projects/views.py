@@ -9,7 +9,6 @@ from django.shortcuts import get_object_or_404
 
 from teams.models import Team
 
-import traceback
 
 
 @api_view(["GET"])
