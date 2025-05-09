@@ -72,6 +72,7 @@ class TeamDetailSerializer(serializers.ModelSerializer):
    class Meta:
        model = Team
        fields = ["id" , "name", "is_private", "active" , "admin" ,  "project" , "users"]
+       read_only_fields = ["id","admin" , "project" , "users"]
 
    def get_users(self, obj):
        team_users = TeamUser.objects.filter(team=obj).select_related("user")
