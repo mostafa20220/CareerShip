@@ -99,13 +99,6 @@ DATABASES = {
         "HOST": config("DB_HOST", default="localhost"),
         "PORT": config("DB_PORT", default="5432"),
         "CONN_MAX_AGE":config("CONN_MAX_AGE", default=60, cast=int),
-#         'ENGINE': 'django_cockroachdb',
-#         'USER': config("DB_USER"),
-#         'PASSWORD': config("DB_PASSWORD"),
-#         'HOST': config("DB_HOST"),
-#         'PORT': config("DB_PORT"),
-#         'NAME': config("DB_NAME"),
-
         'OPTIONS': {
         },
     },
