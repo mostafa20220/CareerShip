@@ -1,18 +1,4 @@
 services:
-  db:
-    image: postgres:17.2
-    volumes:
-      - careershipdb:/var/lib/postgresql/data
-    environment:
-      - POSTGRES_USER=${DB_USER}
-      - POSTGRES_PASSWORD=${DB_PASSWORD}
-      - POSTGRES_DB=${DB_NAME}
-    ports:
-      - "${DB_PORT}:${DB_PORT}"
-    command: postgres -c port=${DB_PORT}
-    env_file:
-      - ./.env
-    restart: unless-stopped
 
   redis:
     image: redis:7.0
@@ -35,9 +21,7 @@ services:
     volumes:
       - .:/code
     ports:
-      - "8000:8001"
-#    depends_on:
-#      - db
+      - "8080:8001"
     env_file:
       - ./.env
     restart: unless-stopped
