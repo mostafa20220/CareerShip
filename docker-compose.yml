@@ -1,5 +1,27 @@
 services:
 
+  traefik:
+    image: traefik:v2.10
+    container_name: traefik
+    restart: always
+    command:
+      - --api.dashboard=true
+      - --entrypoints.web.address=:80
+      - --entrypoints.websecure.address=:443
+      - --providers.docker=true
+      - --certificatesresolvers.myresolver.acme.httpchallenge=true
+      - --certificatesresolvers.myresolver.acme.httpchallenge.entrypoint=web
+      - --certificatesresolvers.myresolver.acme.email=${EMAIL}
+      - --certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json
+    ports:
+      - "80:80"
+      - "443:443"
+#      - "8081:8080" # Traefik dashboard
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./letsencrypt:/letsencrypt
+
+
   redis:
     image: redis:7.0
     container_name: redis
@@ -20,10 +42,19 @@ services:
     build: .
     volumes:
       - .:/code
-    ports:
-      - "8080:8001"
+    expose:
+      - "${DJANGO_PORT}"
     env_file:
       - ./.env
     restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.django.rule=Host(`${EC2_PUBLIC_DNS}`)"
+      - "traefik.http.routers.django.entrypoints=websecure"
+      - "traefik.http.routers.django.tls.certresolver=myresolver"
+      - "traefik.http.services.django.loadbalancer.server.port=${DJANGO_PORT}"
+    depends_on:
+      - traefik
+
 volumes:
     careershipdb:
