@@ -16,7 +16,7 @@ services:
     ports:
       - "80:80"
       - "443:443"
-#      - "8081:8080" # Traefik dashboard
+      - "8081:8080" # Traefik dashboard
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./letsencrypt:/letsencrypt
@@ -26,6 +26,8 @@ services:
     image: redis:7.0
     container_name: redis
     restart: unless-stopped
+    labels:
+      - "traefik.enable=false"
     ports:
       - "6379:6379"
 
@@ -34,6 +36,8 @@ services:
     container_name: celery_worker
     command: celery -A CareerShip worker --loglevel=info
     restart: unless-stopped
+    labels:
+      - "traefik.enable=false"
     depends_on:
       - redis
       - django
@@ -44,6 +48,8 @@ services:
       - .:/code
     expose:
       - "${DJANGO_PORT}"
+    ports:
+        - "8080:${DJANGO_PORT}"
     env_file:
       - ./.env
     restart: unless-stopped
