@@ -28,8 +28,6 @@ services:
     restart: unless-stopped
     labels:
       - "traefik.enable=false"
-    ports:
-      - "6379:6379"
 
   celery:
     build: .
@@ -48,14 +46,12 @@ services:
       - .:/code
     expose:
       - "${DJANGO_PORT}"
-    ports:
-        - "8080:${DJANGO_PORT}"
     env_file:
       - ./.env
     restart: unless-stopped
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.django.rule=Host(`${EC2_PUBLIC_DNS}`)"
+      - "traefik.http.routers.django.rule=Host(`${CUSTOM_DOMAIN}`)"
       - "traefik.http.routers.django.entrypoints=websecure"
       - "traefik.http.routers.django.tls.certresolver=myresolver"
       - "traefik.http.services.django.loadbalancer.server.port=${DJANGO_PORT}"
