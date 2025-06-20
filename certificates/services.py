@@ -53,7 +53,7 @@ class CertificateGenerator:
         self._draw_centered_text(c, student, 280, 'Helvetica-BoldOblique', 50, self.black)
 
         # Draw track name (centered)
-        self._draw_centered_text(c, track, 380, 'Courier-BoldOblique', 25, self.orange)
+        self._draw_centered_text(c, track, 420, 'Courier-BoldOblique', 25, self.orange)
 
         # Draw certificate ID and Date
         lines = [
