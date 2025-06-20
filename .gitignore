@@ -95,3 +95,5 @@ db.sqlite3
 static/
 .venv/
 /media/
+/careership-vm-keypair.pem
+/cli-user_accessKeys.csv
