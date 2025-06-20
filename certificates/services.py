@@ -61,8 +61,8 @@ class CertificateGenerator:
             f'Date: {date}'
         ]
         textobject = c.beginText()
-        textobject.setTextOrigin(self.page_width - 300, 500)
-        textobject.setFont('Courier-BoldOblique', 16)
+        textobject.setTextOrigin(self.page_width - 350, 500)
+        textobject.setFont('Courier-BoldOblique', 10)
         textobject.setFillColorRGB(*self.black)
 
         for line in lines:
