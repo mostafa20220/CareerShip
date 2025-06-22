@@ -53,7 +53,7 @@ class CertificateGenerator:
         self._draw_centered_text(c, student, 280, 'Helvetica-BoldOblique', 50, self.black)
 
         # Draw track name (centered)
-        self._draw_centered_text(c, track, 380, 'Courier-BoldOblique', 25, self.orange)
+        self._draw_centered_text(c, track, 420, 'Courier-BoldOblique', 25, self.orange)
 
         # Draw certificate ID and Date
         lines = [
@@ -61,8 +61,8 @@ class CertificateGenerator:
             f'Date: {date}'
         ]
         textobject = c.beginText()
-        textobject.setTextOrigin(self.page_width - 300, 500)
-        textobject.setFont('Courier-BoldOblique', 16)
+        textobject.setTextOrigin(self.page_width - 350, 500)
+        textobject.setFont('Courier-BoldOblique', 10)
         textobject.setFillColorRGB(*self.black)
 
         for line in lines:
