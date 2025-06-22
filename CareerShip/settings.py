@@ -2,6 +2,8 @@ from datetime import timedelta
 from pathlib import Path
 
 import os
+from urllib.parse import urljoin
+
 from decouple import config
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -236,6 +238,15 @@ ACCOUNT_LOGOUT_ON_GET = True
 ACCOUNT_LOGOUT_ON_PASSWORD_CHANGE = True
 ACCOUNT_SESSION_REMEMBER = True
 ACCOUNT_ADAPTER = 'allauth.account.adapter.DefaultAccountAdapter'
+SOCIALACCOUNT_LOGIN_ON_GET=True
+SOCIALACCOUNT_AUTO_SIGNUP = True
+REST_USE_JWT = False
+
+
+SOCIALACCOUNT_ADAPTER = 'users.adapters.MySocialAccountAdapter'
+
+FRONTEND_URL = config('FRONTEND_URL', default='http://localhost:3000/')
+OAUTH_CALLBACK_URL = urljoin(FRONTEND_URL, 'oauth/callback')
 
 # Social Account Settings
 SOCIALACCOUNT_PROVIDERS = {
@@ -259,8 +270,7 @@ SOCIALACCOUNT_PROVIDERS = {
             'secret': config('SOCIAL_AUTH_GITHUB_SECRET'),
         },
         'SCOPE': [
-            'user',
-            'email',
+            'user:email',
         ],
     },
 }
