@@ -31,6 +31,8 @@ services:
 
   celery:
     build: .
+    volumes:
+      - .:/code
     container_name: celery_worker
     command: celery -A CareerShip worker --loglevel=info
     restart: unless-stopped
@@ -58,5 +60,3 @@ services:
     depends_on:
       - traefik
 
-volumes:
-    careershipdb:
