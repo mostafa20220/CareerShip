@@ -1,0 +1,197 @@
+
+{
+  "name": "Build the TaskMaster API",
+  "slug": "build-the-taskmaster-api",
+  "description": "This project challenges you to build a simple but solid REST API for managing a to-do list. You will create a server that can create, read, update, and delete tasks. Our automated test suite will interact with your live API to ensure it meets all the requirements.\n\nThis project will teach you the fundamentals of building RESTful APIs, handling different HTTP requests, and structuring data in JSON—skills every backend developer needs.",
+  "difficulty_level": "Beginner",
+  "category": "Back-End Development",
+  "is_premium": false,
+  "max_team_size": 1,
+  "tasks": [
+    {
+      "name": "Implement All CRUD Endpoints",
+      "slug": "implement-all-crud-endpoints",
+      "description": "Your primary job is to implement all five required endpoints for the TaskMaster API. This includes creating, reading, updating, and deleting tasks. Follow the API contract precisely to pass the automated tests.",
+      "difficulty_level": "Beginner",
+      "duration_in_days": 3,
+      "prerequisites": [
+        "Basic knowledge of a backend language",
+        "Understanding of REST concepts",
+        "Experience with JSON"
+      ],
+      "endpoints": [
+        {
+          "method": "POST",
+          "path": "/tasks",
+          "description": "Create a new task."
+        },
+        {
+          "method": "GET",
+          "path": "/tasks",
+          "description": "Get all tasks."
+        },
+        {
+          "method": "GET",
+          "path": "/tasks/{id}",
+          "description": "Retrieve a single task."
+        },
+        {
+          "method": "PUT",
+          "path": "/tasks/{id}",
+          "description": "Update an existing task."
+        },
+        {
+          "method": "DELETE",
+          "path": "/tasks/{id}",
+          "description": "Delete a task."
+        }
+      ],
+      "test_cases": [
+        {
+          "name": "Initial State: Get all tasks (should be empty)",
+          "order": 0,
+          "description": "Tests if GET /tasks returns an empty array before any tasks are created.",
+          "test_type": "API_REQUEST",
+          "points": 5,
+          "stop_on_failure": true,
+          "api_details": {
+            "endpoint_path": "/tasks",
+            "method": "GET",
+            "expected_status_code": 200,
+            "expected_response_schema": {
+              "type": "array",
+              "items": {},
+              "maxItems": 0
+            }
+          }
+        },
+        {
+          "name": "Create Task: Valid Request",
+          "order": 1,
+          "description": "Tests if a task can be created successfully with valid data.",
+          "test_type": "API_REQUEST",
+          "points": 10,
+          "stop_on_failure": true,
+          "api_details": {
+            "endpoint_path": "/tasks",
+            "method": "POST",
+            "request_payload": {
+              "title": "My First Test Task",
+              "description": "A detailed description for the test task."
+            },
+            "expected_status_code": 201,
+            "expected_response_schema": {
+              "type": "object",
+              "properties": {
+                "id": {"type": ["integer", "string"]},
+                "title": {"type": "string", "const": "My First Test Task"},
+                "description": {"type": "string"},
+                "is_completed": {"type": "boolean", "const": false}
+              },
+              "required": ["id", "title", "description", "is_completed"]
+            }
+          }
+        },
+        {
+          "name": "Create Task: Invalid Request (Missing Title)",
+          "order": 2,
+          "description": "Tests for proper validation when a required field is missing.",
+          "test_type": "API_REQUEST",
+          "points": 5,
+          "stop_on_failure": false,
+          "api_details": {
+            "endpoint_path": "/tasks",
+            "method": "POST",
+            "request_payload": {
+              "description": "This request is missing a title."
+            },
+            "expected_status_code": 400
+          }
+        },
+        {
+          "name": "Read Task: Get a single existing task",
+          "order": 3,
+          "description": "After creating a task, this test fetches it by its ID to ensure it exists.",
+          "test_type": "API_REQUEST",
+          "points": 10,
+          "stop_on_failure": true,
+          "api_details": {
+            "endpoint_path": "/tasks/{id}",
+            "method": "GET",
+            "expected_status_code": 200,
+            "expected_response_schema": {
+              "type": "object",
+              "properties": {"id": {}, "title": {"type": "string"}},
+              "required": ["id", "title"]
+            }
+          }
+        },
+        {
+          "name": "Read Task: Get a non-existent task",
+          "order": 4,
+          "description": "Tests if the API correctly returns a 404 for an ID that does not exist.",
+          "test_type": "API_REQUEST",
+          "points": 5,
+          "stop_on_failure": false,
+          "api_details": {
+            "endpoint_path": "/tasks/{id}",
+            "method": "GET",
+            "expected_status_code": 404
+          }
+        },
+        {
+          "name": "Update Task: Mark task as completed",
+          "order": 5,
+          "description": "Tests the PUT endpoint to modify an existing task.",
+          "test_type": "API_REQUEST",
+          "points": 10,
+          "stop_on_failure": true,
+          "api_details": {
+            "endpoint_path": "/tasks/{id}",
+            "method": "PUT",
+            "request_payload": {
+              "title": "My First Test Task (Updated)",
+              "is_completed": true
+            },
+            "expected_status_code": 200,
+            "expected_response_schema": {
+              "type": "object",
+              "properties": {
+                "id": {},
+                "title": {"type": "string", "const": "My First Test Task (Updated)"},
+                "is_completed": {"type": "boolean", "const": true}
+              },
+              "required": ["id", "title", "is_completed"]
+            }
+          }
+        },
+        {
+          "name": "Delete Task: Remove an existing task",
+          "order": 6,
+          "description": "Tests the DELETE endpoint to ensure a task is removed.",
+          "test_type": "API_REQUEST",
+          "points": 10,
+          "stop_on_failure": true,
+          "api_details": {
+            "endpoint_path": "/tasks/{id}",
+            "method": "DELETE",
+            "expected_status_code": 204
+          }
+        },
+        {
+          "name": "Final State: Verify task was deleted",
+          "order": 7,
+          "description": "After deleting a task, confirms that trying to GET it results in a 404.",
+          "test_type": "API_REQUEST",
+          "points": 5,
+          "stop_on_failure": false,
+          "api_details": {
+            "endpoint_path": "/tasks/{id}",
+            "method": "GET",
+            "expected_status_code": 404
+          }
+        }
+      ]
+    }
+  ]
+}
