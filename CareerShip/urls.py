@@ -10,7 +10,10 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/v1/', include([
         path('', include('projects.urls')),
-        path('auth/', include('users.urls')),
+        path('auth/', include([
+            path('', include('users.urls')),
+            path('accounts/', include('allauth.urls')),
+        ])),
         path('certificates/', include('certificates.urls')),
         path('teams/' , include('teams.urls')),
     ]) ),
