@@ -7,6 +7,7 @@ from allauth.socialaccount.providers.google.views import GoogleOAuth2Adapter
 from allauth.socialaccount.providers.github.views import GitHubOAuth2Adapter
 from dj_rest_auth.registration.views import SocialLoginView
 from allauth.socialaccount.providers.oauth2.client import OAuth2Client
+from decouple import config
 
 from users.serializers import (
     LogoutSerializer,
@@ -19,12 +20,15 @@ from users.serializers import (
 class RegisterView(CreateAPIView):
     serializer_class = RegisterSerializer
 
+
 class LogoutView(CreateAPIView):
     permission_classes = [IsAuthenticated]
     serializer_class = LogoutSerializer
 
+
 class ProfileView(APIView):
     permission_classes = [IsAuthenticated]
+
     def get(self, request):
         user = request.user
         serializer = RetrieveProfileSerializer(user)
@@ -53,11 +57,11 @@ class ProfileView(APIView):
 
 class GoogleLoginView(SocialLoginView):
     adapter_class = GoogleOAuth2Adapter
-    callback_url = "http://localhost:8000/api/v1/auth/accounts/google/login/callback/"
+    callback_url = config("GOOGLE_CALLBACK_URL")
     client_class = OAuth2Client
 
 
 class GitHubLoginView(SocialLoginView):
     adapter_class = GitHubOAuth2Adapter
-    callback_url = "http://localhost:8000/api/v1/auth/accounts/github/login/callback/"
+    callback_url = config("GITHUB_CALLBACK_URL")
     client_class = OAuth2Client
