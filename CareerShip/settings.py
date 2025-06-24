@@ -63,7 +63,7 @@ INSTALLED_APPS = [
     'subscriptions',
     'teams',
     'projects',
-    'corsheaders'
+    'corsheaders',
 ]
 
 MIDDLEWARE = [
@@ -192,11 +192,6 @@ AUTH_USER_MODEL = 'users.User'
 # Social Auth
 SOCIAL_AUTH_GOOGLE_OAUTH2_KEY = config('SOCIAL_AUTH_GOOGLE_OAUTH2_KEY')
 SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET = config('SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET')
-SOCIAL_AUTH_GOOGLE_OAUTH2_SCOPE = config(
-    'SOCIAL_AUTH_GOOGLE_OAUTH2_SCOPE',
-    default=['email', 'profile'],
-    cast=lambda v: [s.strip() for s in v.split(' ')],
-)
 
 
 # dj-rest-auth settings
@@ -204,7 +199,7 @@ REST_AUTH = {
     'USE_JWT': True,
     'JWT_AUTH_COOKIE': 'auth',
     'JWT_AUTH_REFRESH_COOKIE': 'refresh-auth',
-    'JWT_AUTH_HTTPONLY': False,
+    'JWT_AUTH_HTTPONLY': True,
     'REGISTER_SERIALIZER': 'users.serializers.RegisterSerializer',
     'TOKEN_MODEL': 'rest_framework.authtoken.models.Token',
 }
