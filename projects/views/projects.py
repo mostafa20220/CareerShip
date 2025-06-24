@@ -1,35 +1,46 @@
-from rest_framework.response import Response
 from rest_framework import status
+from rest_framework.views import APIView
+from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
-from projects.models.projects import Project, UserProject
-from projects.serializers import ProjectSerializer
+from rest_framework.exceptions import ValidationError
+from rest_framework.generics import RetrieveAPIView, ListAPIView
+
+from users.permissions import IsAdmin
 from utils.pagination import StandardPagination
 from django.shortcuts import get_object_or_404
-from certificates.models import Certificate
 import uuid
 
 
+from certificates.models import Certificate
+from projects.models.projects import Project, UserProject
+from projects.serializers import ProjectSeedSerializer, ProjectSerializer, ProjectDetailsSerializer
+from projects.services import ProjectSeederService, ProjectCreationError
 
-@api_view(["GET"])
-def list_projects(request):
-    projects = Project.objects.all()
 
-    paginator = StandardPagination()
-    paginated_projects = paginator.paginate_queryset(projects, request)
+class ProjectsListView(ListAPIView):
+    permission_classes = [IsAuthenticated]
+    queryset = Project.objects.all()
+    serializer_class = ProjectSerializer
+    pagination_class = StandardPagination
 
-    data = ProjectSerializer(paginated_projects, many=True).data
-    paginated_response = paginator.get_paginated_response(data)
-    paginated_response.status_code = status.HTTP_200_OK
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        category = self.request.query_params.get('category')
+        difficulty_level = self.request.query_params.get('difficulty_level')
 
-    return paginated_response
+        if category:
+            queryset = queryset.filter(category__slug=category)
+        if difficulty_level:
+            queryset = queryset.filter(difficulty_level__slug=difficulty_level)
 
-@api_view(["GET"])
-def get_project(request, project_id):
-    project = get_object_or_404(Project, id=project_id)
-    data = ProjectSerializer(project).data
-    return Response(data, status=status.HTTP_200_OK)
+        return queryset
 
+class ProjectDetailsView(RetrieveAPIView):
+    lookup_url_kwarg = 'project_id'
+    queryset = Project.objects.all()
+    permission_classes = [IsAuthenticated]
+    serializer_class = ProjectDetailsSerializer
 
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
@@ -55,3 +66,31 @@ def certificate_available(request, project_id):
         return Response({"available": False, "detail": "Certificate already issued."}, status=status.HTTP_200_OK)
     return Response({"available": True, "detail": "Certificate is available to be requested."}, status=status.HTTP_200_OK)
 
+
+class ProjectSeedUploadView(APIView):
+    permission_classes = [IsAdmin]
+
+    def post(self, request, *args, **kwargs):
+        serializer = ProjectSeedSerializer(data=request.data)
+        try:
+            serializer.is_valid(raise_exception=True)
+
+            service = ProjectSeederService(serializer.validated_data)
+            project = service.create_project()
+
+        except ValidationError as e:
+            return Response(e.detail, status=status.HTTP_400_BAD_REQUEST)
+        except ProjectCreationError as e:
+            return Response({'error': str(e)}, status=e.status_code)
+        except Exception as e:
+            # Catch unexpected errors
+            return Response({'error': f'An unexpected error occurred: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        # On success, return a representation of the created project's main details
+        response_data = {
+            'id': project.id,
+            'name': project.name,
+            'slug': project.slug,
+            'message': 'Project created successfully.'
+        }
+        return Response(response_data, status=status.HTTP_201_CREATED)
