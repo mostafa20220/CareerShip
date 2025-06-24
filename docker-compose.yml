@@ -4,10 +4,9 @@ services:
     volumes:
       - careershipdb:/var/lib/postgresql/data
     environment:
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      - POSTGRES_DB=${POSTGRES_DB}
-      - POSTGRES_HOST=${POSTGRES_HOST}
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_DB=${postgres}
     ports:
       - "5435:5432"
     env_file:
@@ -26,6 +25,8 @@ services:
     container_name: celery_worker
     command: celery -A CareerShip worker --loglevel=info
     restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway" # <--- AND ADD THIS
     depends_on:
       - redis
       - django
@@ -41,5 +42,8 @@ services:
     env_file:
       - ./.env
     restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway" # <--- AND ADD THIS
+
 volumes:
     careershipdb:
