@@ -1,7 +1,9 @@
 from django.core.exceptions import ValidationError
 
 from teams.models import TeamUser, Team
+from utils.logging_utils import get_logger
 
+logger = get_logger(__name__)
 
 
 from rest_framework.exceptions import ValidationError
@@ -15,23 +17,29 @@ class InvitationService:
     @staticmethod
     def accept_invitation(invitation, user):
         """Accept an invitation and add the user to the team."""
+        logger.info(f"User {user.id} attempting to accept invitation {invitation.id}")
 
         if not invitation:
+            logger.warning(f"Invitation not found for user {user.id}")
             raise ValidationError("Invitation not found.")
 
         # Check if invitation is expired
         if invitation.is_expired():
+            logger.warning(f"Invitation {invitation.id} has expired.")
             raise ValidationError("Invitation has expired.")
 
         # Check if user is already in the team
         if is_team_member(team=invitation.team, user=user):
+            logger.warning(f"User {user.id} is already a member of team {invitation.team.id}")
             raise ValidationError("You are already a member of this team.")
           
         if is_max_team_size(team=invitation.team, project=invitation.team.project):
+            logger.warning(f"Team {invitation.team.id} has reached its maximum size.")
             raise ValidationError("This team has reached its maximum size.")
 
         # Add the user to the team
         add_team_member(team=invitation.team, user=user)
+        logger.info(f"User {user.id} successfully joined team {invitation.team.id}")
 
         return {"error": "You have successfully joined the team."}
       
@@ -76,19 +84,23 @@ def team_members(team):
 
 def add_team_member(user, team):
     """Add a user to a team in this project."""
+    logger.info(f"Adding user {user.id} to team {team.id}")
     TeamUser.objects.create(team=team, user=user)
 
 def create_team(team_name , user , project):
     """Create a team for this project."""
+    logger.info(f"User {user.id} creating team '{team_name}' for project {project.id}")
     team = Team.objects.create(name=team_name, admin=user , project=project)
     # link the created team with the user and the project
     TeamUser.objects.create(team=team, user=user)
+    logger.info(f"Team {team.id} created successfully.")
 
     return team
 
 
 def remove_user_from_team(user, team):
     """Remove a user from a team."""
+    logger.info(f"Removing user {user.id} from team {team.id}")
     TeamUser.objects.filter(team=team, user=user).delete()
 
 
