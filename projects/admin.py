@@ -59,7 +59,7 @@ class ApiTestCaseInline(admin.StackedInline):
 
 @admin.register(TestCase)
 class TestCaseAdmin(admin.ModelAdmin):
-    list_display = ('name', 'task', 'test_type', 'points', 'stop_on_failure')
+    list_display = ('name', 'order','task', 'test_type', 'points', 'stop_on_failure')
     list_filter = ('test_type', 'task__project__name')
     search_fields = ('name', 'task__name')
     inlines = [ApiTestCaseInline]
@@ -72,7 +72,7 @@ class TestCaseAdmin(admin.ModelAdmin):
 class TaskInline(admin.TabularInline):
     model = Task
     extra = 1
-    fields = ('name', 'slug', 'difficulty_level', 'duration_in_days')
+    fields = ('name', 'order','slug', 'difficulty_level', 'duration_in_days')
     show_change_link = True
 
 class EndpointInline(admin.TabularInline):
@@ -82,7 +82,7 @@ class EndpointInline(admin.TabularInline):
 class TestCaseInlineForTask(admin.TabularInline):
     model = TestCase
     extra = 1
-    fields = ('name', 'test_type', 'points', 'stop_on_failure')
+    fields = ('name','order', 'test_type', 'points', 'stop_on_failure')
     show_change_link = True
 
 
@@ -106,7 +106,7 @@ class ProjectAdmin(admin.ModelAdmin):
 
 @admin.register(Task)
 class TaskAdmin(admin.ModelAdmin):
-    list_display = ("name", "project", "difficulty_level", "duration_in_days")
+    list_display = ("name", "order","project", "difficulty_level", "duration_in_days")
     list_filter = ("project__name", "difficulty_level")
     search_fields = ("name", "slug")
     inlines = [EndpointInline, TestCaseInlineForTask]
