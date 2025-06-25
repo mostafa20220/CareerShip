@@ -16,6 +16,9 @@ from certificates.models import Certificate
 from projects.models.projects import Project, UserProject
 from projects.serializers import ProjectSeedSerializer, ProjectSerializer, ProjectDetailsSerializer
 from projects.services import ProjectSeederService, ProjectCreationError
+from utils.logging_utils import get_logger
+
+logger = get_logger(__name__)
 
 
 class ProjectsListView(ListAPIView):
@@ -71,6 +74,8 @@ class ProjectSeedUploadView(APIView):
     permission_classes = [IsAdmin]
 
     def post(self, request, *args, **kwargs):
+        logger.info(f"Received project seed upload request from user id: {request.user.id}, user name: {request.user.first_name} {request.user.last_name}")
+        logger.debug(f"Request data: {request.data}")
         serializer = ProjectSeedSerializer(data=request.data)
         try:
             serializer.is_valid(raise_exception=True)
@@ -79,10 +84,13 @@ class ProjectSeedUploadView(APIView):
             project = service.create_project()
 
         except ValidationError as e:
+            logger.warning(f"Validation error during project seed upload: {e.detail}")
             return Response(e.detail, status=status.HTTP_400_BAD_REQUEST)
         except ProjectCreationError as e:
+            logger.error(f"Project creation error during project seed upload: {e}")
             return Response({'error': str(e)}, status=e.status_code)
         except Exception as e:
+            logger.critical(f"Unexpected error during project seed upload: {e}", exc_info=True)
             # Catch unexpected errors
             return Response({'error': f'An unexpected error occurred: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 

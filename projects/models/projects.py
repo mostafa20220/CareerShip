@@ -20,7 +20,9 @@ class Project(models.Model):
     max_team_size = models.PositiveSmallIntegerField(default=1)
 
     def save(self, *args, **kwargs):
-        self.slug = slugify(self.name)
+        if not self.slug:
+            # Generate slug from name if not provided
+            self.slug = slugify(self.name)
         super(Project, self).save(*args, **kwargs)
 
     def __str__(self ):
@@ -31,4 +33,6 @@ class UserProject(models.Model):
     user = models.ForeignKey('users.User', on_delete=models.CASCADE, db_index=True)
     project = models.ForeignKey('Project', on_delete=models.CASCADE, db_index=True)
     is_finished = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
     deployment_url = models.URLField(blank=True, null=True)
