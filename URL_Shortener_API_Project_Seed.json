@@ -1,0 +1,192 @@
+{
+  "name": "Build the 'LinkZip' URL Shortener API",
+  "slug": "linkzip-url-shortener-api-v2",
+  "description": "This project challenges you to build a robust API for a URL shortening service. Users will submit a long URL and receive a shorter, unique 'zip code' that redirects to the original URL. This project moves beyond simple CRUD and requires you to think about data generation, HTTP redirects, and tracking state.",
+  "difficulty_level": "Intermediate",
+  "category": "Back-End Development",
+  "is_premium": false,
+  "max_team_size": 1,
+  "tasks": [
+    {
+      "name": "Implement Core Shortening and Redirect Logic",
+      "slug": "core-shortening-redirect",
+      "order": 0,
+      "description": "Your first task is to build the main functionality. You need an endpoint to accept a long URL and return a unique short code, and another endpoint to handle the redirection when someone uses the short link.",
+      "difficulty_level": "Intermediate",
+      "duration_in_days": 4,
+      "prerequisites": [
+        "REST API Fundamentals",
+        "Understanding of HTTP Redirects (302)",
+        "Basic Algorithm Design"
+      ],
+      "endpoints": [
+        {
+          "id": "shorten_url",
+          "method": "POST",
+          "path": "/shorten",
+          "description": "Accepts a long URL and creates a unique, short identifier."
+        },
+        {
+          "id": "redirect_url",
+          "method": "GET",
+          "path": "/{zip_code}",
+          "description": "Redirects the user to the original long URL associated with the zip_code."
+        }
+      ],
+      "test_cases": [
+        {
+          "name": "Shorten URL: Valid Request",
+          "order": 0,
+          "description": "Tests if a long URL can be successfully shortened.",
+          "test_type": "API_REQUEST",
+          "points": 10,
+          "stop_on_failure": true,
+          "api_details": {
+            "endpoint_id": "shorten_url",
+            "request_payload": {
+              "url": "https://www.google.com/very/long/path/to/a/resource"
+            },
+            "expected_status_code": 201,
+            "expected_response_schema": {
+              "type": "object",
+              "properties": {
+                "id": {"type": ["integer", "string"]},
+                "original_url": {"type": "string"},
+                "zip_code": {"type": "string", "minLength": 5},
+                "clicks": {"type": "integer", "const": 0}
+              },
+              "required": ["id", "original_url", "zip_code", "clicks"]
+            }
+          }
+        },
+        {
+          "name": "Shorten URL: Invalid URL",
+          "order": 1,
+          "description": "Tests that the API rejects an invalid URL format.",
+          "test_type": "API_REQUEST",
+          "points": 5,
+          "stop_on_failure": false,
+          "api_details": {
+            "endpoint_id": "shorten_url",
+            "request_payload": {
+              "url": "not-a-valid-url"
+            },
+            "expected_status_code": 400
+          }
+        },
+        {
+          "name": "Redirect: Follow a valid zip_code",
+          "order": 2,
+          "description": "Tests if using a valid zip_code results in a redirect. The test runner should NOT follow the redirect.",
+          "test_type": "API_REQUEST",
+          "points": 10,
+          "stop_on_failure": true,
+          "api_details": {
+            "endpoint_id": "redirect_url",
+            "path_params": {"zip_code": "{{context.zip_code}}"},
+            "expected_status_code": 302
+          }
+        },
+        {
+          "name": "Redirect: Use a non-existent zip_code",
+          "order": 3,
+          "description": "Tests that the API returns a 404 for a zip_code that doesn't exist.",
+          "test_type": "API_REQUEST",
+          "points": 5,
+          "stop_on_failure": false,
+          "api_details": {
+            "endpoint_id": "redirect_url",
+            "path_params": {"zip_code": "invalidcode"},
+            "expected_status_code": 404
+          }
+        }
+      ]
+    },
+    {
+      "name": "Implement Analytics Endpoint",
+      "slug": "analytics-endpoint",
+      "order": 1,
+      "description": "Your second task is to provide a way for users to see how many times their shortened link has been used. You will need to track the click count and expose it via a new endpoint.",
+      "difficulty_level": "Intermediate",
+      "duration_in_days": 2,
+      "prerequisites": [
+        "Database Record Updating",
+        "API Data Aggregation"
+      ],
+      "endpoints": [
+        {
+          "id": "get_stats",
+          "method": "GET",
+          "path": "/stats/{zip_code}",
+          "description": "Retrieves the usage statistics for a given zip_code."
+        }
+      ],
+      "test_cases": [
+        {
+          "name": "Setup: Create a new link for analytics testing",
+          "order": 0,
+          "description": "Creates a fresh URL to ensure analytics tests are isolated.",
+          "test_type": "API_REQUEST",
+          "points": 5,
+          "stop_on_failure": true,
+          "api_details": {
+            "endpoint_id": "shorten_url",
+            "request_payload": {
+              "url": "https://www.anotherexample.com/for/analytics"
+            },
+            "expected_status_code": 201
+          }
+        },
+        {
+          "name": "Analytics: Get initial stats",
+          "order": 1,
+          "description": "Checks the initial click count for the new link, which should be 0.",
+          "test_type": "API_REQUEST",
+          "points": 10,
+          "stop_on_failure": true,
+          "api_details": {
+            "endpoint_id": "get_stats",
+            "path_params": {"zip_code": "{{context.zip_code}}"},
+            "expected_status_code": 200,
+            "expected_response_schema": {
+              "type": "object",
+              "properties": { "clicks": {"type": "integer", "const": 0} },
+              "required": ["clicks"]
+            }
+          }
+        },
+        {
+          "name": "Act: Trigger a redirect to increment click count",
+          "order": 2,
+          "description": "Performs a GET on the short URL to simulate a user click.",
+          "test_type": "API_REQUEST",
+          "points": 5,
+          "stop_on_failure": true,
+          "api_details": {
+            "endpoint_id": "redirect_url",
+            "path_params": {"zip_code": "{{context.zip_code}}"},
+            "expected_status_code": 302
+          }
+        },
+        {
+          "name": "Analytics: Verify click count increases after redirect",
+          "order": 3,
+          "description": "Checks that after a redirect is performed, the click count is now at least 1.",
+          "test_type": "API_REQUEST",
+          "points": 15,
+          "stop_on_failure": false,
+          "api_details": {
+            "endpoint_id": "get_stats",
+            "path_params": {"zip_code": "{{context.zip_code}}"},
+            "expected_status_code": 200,
+            "expected_response_schema": {
+              "type": "object",
+              "properties": { "clicks": {"type": "integer", "minimum": 1} },
+              "required": ["clicks"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
