@@ -103,13 +103,14 @@ class UserProjectSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = UserProject
-        fields = ["project", "is_finished", "created_at", "updated_at", "deployment_url"]
-
+        fields = "__all__"
 
 class ProjectRegistrationSerializer(serializers.ModelSerializer):
+    deployment_url = serializers.URLField(required=False, allow_blank=True)
+
     class Meta:
         model = UserProject
-        fields = ['project']
+        fields = ['project', 'deployment_url']
 
     def validate(self, data):
         user = self.context['request'].user
@@ -137,7 +138,7 @@ class SubmissionDetailsSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 class CreateSubmissionSerializer(serializers.ModelSerializer):
-
+    deployment_url = serializers.URLField(required=False, allow_blank=True)
 
     class Meta:
         model = Submission
@@ -158,9 +159,24 @@ class CreateSubmissionSerializer(serializers.ModelSerializer):
     def validate(self, data):
         user = self.context['request'].user
         project = data.get('project')
+        deployment_url = data.get('deployment_url')
 
-        if not UserProject.objects.filter(user=user, project=project).exists():
+        user_project = UserProject.objects.filter(user=user, project=project).first()
+
+        if not user_project:
             raise serializers.ValidationError("You must be registered for this project to submit a task.")
+
+        if not deployment_url and not user_project.deployment_url:
+            raise serializers.ValidationError("Deployment URL is required for submission as it's not set in your project registration.")
+
+        if deployment_url:
+            # If a new URL is provided, update the registration
+            if user_project.deployment_url != deployment_url:
+                user_project.deployment_url = deployment_url
+                user_project.save()
+        else:
+            # If no URL is provided, use the one from the registration
+            data['deployment_url'] = user_project.deployment_url
 
         return data
 
