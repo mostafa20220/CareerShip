@@ -1,7 +1,7 @@
 from rest_framework import serializers
 
 from projects.models.categories_difficulties import Category, DifficultyLevel
-from projects.models.projects import Project
+from projects.models.projects import Project, UserProject
 from projects.models.submission import Submission
 from projects.models.tasks_endpoints import Task, MethodType, Endpoint
 
@@ -98,6 +98,31 @@ class ProjectDetailsSerializer(serializers.ModelSerializer):
             "tasks",
         ]
 
+class UserProjectSerializer(serializers.ModelSerializer):
+    project = ProjectSerializer()
+
+    class Meta:
+        model = UserProject
+        fields = ["project", "is_finished", "created_at", "updated_at", "deployment_url"]
+
+
+class ProjectRegistrationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserProject
+        fields = ['project']
+
+    def validate(self, data):
+        user = self.context['request'].user
+        project = data['project']
+
+        if UserProject.objects.filter(user=user, project=project).exists():
+            raise serializers.ValidationError("You are already registered for this project.")
+
+        if project.is_premium and not user.is_premium:
+            raise serializers.ValidationError("You must be subscribed to register for this premium project.")
+
+        return data
+
 class DifficultyLevelSerializer(serializers.ModelSerializer):
 
     class Meta:
@@ -130,6 +155,15 @@ class CreateSubmissionSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("URL must start with http:// or https://")
         return value
 
+    def validate(self, data):
+        user = self.context['request'].user
+        project = data.get('project')
+
+        if not UserProject.objects.filter(user=user, project=project).exists():
+            raise serializers.ValidationError("You must be registered for this project to submit a task.")
+
+        return data
+
 
 class ListTaskSerializer(serializers.ModelSerializer):
 
@@ -148,9 +182,8 @@ class ListProjectSubmissionsSerializer(serializers.ModelSerializer):
 
 
 class ApiTestCaseSeedSerializer(serializers.Serializer):
-    endpoint_path = serializers.CharField(max_length=255)
+    endpoint_id = serializers.CharField(max_length=255)
     path_params = serializers.JSONField(required=False, allow_null=True)
-    method = serializers.ChoiceField(choices=MethodType.choices)
     request_payload = serializers.JSONField(required=False, allow_null=True)
     request_headers = serializers.JSONField(required=False, allow_null=True)
     expected_status_code = serializers.IntegerField(min_value=100, max_value=599)
@@ -173,6 +206,7 @@ class TestCaseSeedSerializer(serializers.Serializer):
 
 
 class EndpointSeedSerializer(serializers.Serializer):
+    id = serializers.CharField(max_length=255)
     method = serializers.ChoiceField(choices=MethodType.choices)
     path = serializers.CharField()
     description = serializers.CharField(required=False, allow_blank=True)
@@ -181,6 +215,7 @@ class EndpointSeedSerializer(serializers.Serializer):
 class TaskSeedSerializer(serializers.Serializer):
     name = serializers.CharField(max_length=255)
     slug = serializers.SlugField()
+    order = serializers.IntegerField(min_value=0)
     description = serializers.CharField()
     duration_in_days = serializers.IntegerField(min_value=1)
     prerequisites = serializers.ListField(child=serializers.CharField(), required=False, default=[])
