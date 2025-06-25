@@ -4,11 +4,13 @@ from rest_framework.routers import DefaultRouter
 from projects.views.categories_difficulties import list_categories, ListDifficultiesView
 from projects.views.projects import ProjectsListView, ProjectDetailsView, ProjectSeedUploadView, request_certificate, \
     certificate_available
+from projects.views.registration import ProjectRegistrationViewSet
 
 from projects.views.submission import SubmissionViewSet
 from projects.views.tasks import TaskDetailsView, ListTasksView
 
 router = DefaultRouter()
+router.register(r'registrations', ProjectRegistrationViewSet, basename='project-registration')
 router.register(r'(?P<project_id>\d+)/tasks/(?P<task_id>\d+)/submissions', SubmissionViewSet, basename='task-submissions')
 
 urlpatterns = [
