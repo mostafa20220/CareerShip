@@ -18,7 +18,6 @@ from .permissions import CanViewTeam, IsTeamAdmin, IsTeamMember
 from .serializers import TeamSerializer, LeaveTeamSerializer, TeamDetailSerializer, \
     CreateInvitationSerializer, InvitationDetailSerializer, ChangeTeamAdminSerializer
 
-from .models import TeamUser
 from .services import is_team_member, add_team_member, remove_user_from_team, InvitationService, is_max_team_size, \
     change_team_admin
 

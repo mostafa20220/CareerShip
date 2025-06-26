@@ -1,19 +1,8 @@
-from dataclasses import fields
-
 from django.urls import reverse
 from rest_framework import serializers
-from projects.models.projects import Project
-
-from rest_framework.relations import PrimaryKeyRelatedField
-
-from projects.serializers import ProjectSerializer
-from teams.models import Team, TeamUser,  Invitation
-
-from users.models import User
 from users.serializers import RetrieveProfileSerializer
 
 from .services import *
-from django.core.exceptions import ValidationError as DjangoValidationError
 
 class TeamSerializer(serializers.ModelSerializer):
 
@@ -79,7 +68,7 @@ class TeamDetailSerializer(serializers.ModelSerializer):
        read_only_fields = ["id","admin" , "project" , "users"]
 
    def get_users(self, obj):
-       team_users = TeamUser.objects.filter(team=obj).select_related("user")
+       team_users = Team.objects.filter(team=obj).first().members.all()
        return RetrieveProfileSerializer([tu.user for tu in team_users] , many=True).data
 
    def get_project(self, obj):

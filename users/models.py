@@ -1,7 +1,10 @@
 from django.contrib.auth.base_user import AbstractBaseUser, BaseUserManager
 from django.db import models
 from django.contrib.auth.models import AbstractUser, PermissionsMixin
+from django.db.models.signals import post_save
+from django.dispatch import receiver
 from phonenumber_field.modelfields import PhoneNumberField
+
 
 STUDENT = 'student'
 ADMIN = 'admin'
@@ -64,6 +67,15 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     def __str__(self):
         return self.email
+
+
+@receiver(post_save, sender=User)
+def create_user_team(sender, instance, created, **kwargs):
+    if created:
+        from teams.models import Team
+        team_name = f"{instance.first_name}'s Team" if instance.first_name else f"Team {instance.pk}"
+        Team.create_with_owner(name=team_name, owner=instance)
+
 
 class Skill(models.Model):
     name = models.CharField(max_length=255, unique=True)
