@@ -2,37 +2,34 @@ from rest_framework import viewsets, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from projects.models.projects import UserProject
-from projects.serializers import UserProjectSerializer, ProjectRegistrationSerializer
+from projects.models.projects import TeamProject
+from projects.serializers import TeamProjectSerializer, ProjectRegistrationSerializer
 from utils.logging_utils import get_logger
 
 logger = get_logger(__name__)
 
 class ProjectRegistrationViewSet(viewsets.ModelViewSet):
     """
-    A viewset for handling project registrations.
-    - list: Returns a list of projects the current user is registered for.
-    - create: Registers the current user for a new project.
-    - destroy: Cancels the user's registration for a project.
+    A viewset for handling project registrations for teams.
+    - list: Returns a list of projects the current user's teams are registered for.
+    - create: Registers a team for a new project.
+    - destroy: Cancels a team's registration for a project.
     """
     permission_classes = [IsAuthenticated]
+    serializer_class = ProjectRegistrationSerializer
+    http_method_names = ['get', 'post', 'delete']
 
     def get_queryset(self):
-        """This view should return a list of all the project registrations for the currently authenticated user."""
-        logger.info(f"User {self.request.user.id} fetching their registered projects.")
-        return UserProject.objects.filter(user=self.request.user).select_related('project')
+        user = self.request.user
+        return TeamProject.objects.filter(team__in=user.teams.all())
 
     def get_serializer_class(self):
-        if self.action == 'create':
-            return ProjectRegistrationSerializer
-        return UserProjectSerializer
+        if self.action == 'list':
+            return TeamProjectSerializer
+        return ProjectRegistrationSerializer
 
-    def perform_create(self, serializer):
-        logger.info(f"User {self.request.user.id} registering for project {serializer.validated_data['project'].id}")
-        serializer.save(user=self.request.user)
-
-    def destroy(self, request, *args, **kwargs):
-        instance = self.get_object()
-        logger.info(f"User {request.user.id} canceling registration for project {instance.project.id}")
-        self.perform_destroy(instance)
-        return Response(status=status.HTTP_204_NO_CONTENT)
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_201_CREATED)

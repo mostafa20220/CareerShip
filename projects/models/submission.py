@@ -15,7 +15,7 @@ class Submission(models.Model):
     task = models.ForeignKey('Task', on_delete=models.CASCADE, db_index=True, related_name='submissions')
     user = models.ForeignKey('users.User', on_delete=models.CASCADE, db_index=True, related_name="submissions")
     team = models.ForeignKey(
-        'teams.Team', on_delete=models.CASCADE, null=True, blank=True, db_index=True,related_name='submissions'
+        'teams.Team', on_delete=models.CASCADE, db_index=True,related_name='submissions'
     )
 
     status = models.CharField(choices=status_choices, max_length=50, default=PENDING, db_index=True)

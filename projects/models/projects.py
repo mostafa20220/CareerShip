@@ -29,8 +29,8 @@ class Project(models.Model):
         return self.name
 
 
-class UserProject(models.Model):
-    user = models.ForeignKey('users.User', on_delete=models.CASCADE, db_index=True)
+class TeamProject(models.Model):
+    team = models.ForeignKey('teams.Team', on_delete=models.CASCADE, db_index=True)
     project = models.ForeignKey('Project', on_delete=models.CASCADE, db_index=True)
     is_finished = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)

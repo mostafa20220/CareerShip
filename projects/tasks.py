@@ -1,10 +1,7 @@
 # projects/tasks.py
 
 from celery import shared_task
-from django.utils import timezone
-
 from projects.models.submission import Submission, FAILED
-from projects.services import SubmissionTestRunnerService
 from utils.logging_utils import get_logger
 
 # Set up logger
@@ -17,6 +14,7 @@ def run_submission_tests(self, submission_id: int):
     Celery task to run tests for a submission.
     It uses SubmissionTestRunner to encapsulate the logic.
     """
+    from projects.services import SubmissionTestRunnerService
     try:
         runner = SubmissionTestRunnerService(submission_id)
         return runner.run()

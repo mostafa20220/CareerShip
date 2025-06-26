@@ -1,9 +1,11 @@
 from rest_framework import serializers
 
 from projects.models.categories_difficulties import Category, DifficultyLevel
-from projects.models.projects import Project, UserProject
+from projects.models.projects import Project, TeamProject
 from projects.models.submission import Submission, PASSED
 from projects.models.tasks_endpoints import Task, MethodType, Endpoint
+from teams.models import Team
+from .services import SubmissionService
 
 
 class CategorySerializer(serializers.ModelSerializer):
@@ -98,29 +100,45 @@ class ProjectDetailsSerializer(serializers.ModelSerializer):
             "tasks",
         ]
 
-class UserProjectSerializer(serializers.ModelSerializer):
+class TeamProjectSerializer(serializers.ModelSerializer):
     project = ProjectSerializer()
+    team = serializers.StringRelatedField()
 
     class Meta:
-        model = UserProject
+        model = TeamProject
         fields = "__all__"
 
 class ProjectRegistrationSerializer(serializers.ModelSerializer):
-    deployment_url = serializers.URLField(required=False, allow_blank=True)
+    team = serializers.PrimaryKeyRelatedField(queryset=Team.objects.all())
 
     class Meta:
-        model = UserProject
-        fields = ["id","project", "deployment_url"]
+        model = TeamProject
+        fields = ['id', 'project', 'team', 'deployment_url']
+        read_only_fields = ['id']
+        extra_kwargs = {
+            'deployment_url': {'required': False, 'allow_blank': True}
+        }
 
     def validate(self, data):
-        user = self.context['request'].user
+        team = data['team']
         project = data['project']
+        user = self.context['request'].user
 
-        if UserProject.objects.filter(user=user, project=project).exists():
-            raise serializers.ValidationError("You are already registered for this project.")
+        if user != team.owner:
+            raise serializers.ValidationError("You must be the team owner to register for a project.")
 
-        if project.is_premium and not user.is_premium:
-            raise serializers.ValidationError("You must be subscribed to register for this premium project.")
+        if TeamProject.objects.filter(team=team, project=project).exists():
+            raise serializers.ValidationError("This team is already registered for this project.")
+
+        if project.is_premium and not team.owner.is_premium:
+            raise serializers.ValidationError(
+                "The team owner must be a premium user to register for a premium project."
+            )
+
+        if team.members.count() > project.max_team_size:
+            raise serializers.ValidationError(
+                f"The team size ({team.members.count()}) exceeds the maximum allowed size for this project ({project.max_team_size})."
+            )
 
         return data
 
@@ -138,60 +156,75 @@ class SubmissionDetailsSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 class CreateSubmissionSerializer(serializers.ModelSerializer):
+    team = serializers.PrimaryKeyRelatedField(queryset=Team.objects.all())
 
     class Meta:
         model = Submission
-        fields=[
-            'user','project' ,'task', 'status', 'deployment_url', 'github_url',
+        fields = [
+            'id', 'project', 'task', 'team', 'user', 'deployment_url', 'github_url', 'status'
         ]
         read_only_fields = [
-            'id', 'user', 'status', 'passed_percentage',
-            'execution_logs', 'feedback', 'created_at', 'completed_at'
+            'id', 'user', 'status'
         ]
 
     def validate_deployment_url(self, value):
-        # Basic validation for the URL
-        if value and not value.startswith('http://') and not value.startswith('https://'):
+        if value and not value.startswith(('http://', 'https://')):
+            raise serializers.ValidationError("URL must start with http:// or https://")
+        return value
+
+    def validate_github_url(self, value):
+        if value and not value.startswith(('http://', 'https://')):
             raise serializers.ValidationError("URL must start with http:// or https://")
         return value
 
     def validate(self, data):
         user = self.context['request'].user
-        project = data.get('project')
-        task = data.get('task')
-        deployment_url = data.get('deployment_url')
+        project = data['project']
+        task = data['task']
+        team = data['team']
+
+        data['user'] = user
+
+        if user not in team.members.all():
+            raise serializers.ValidationError("You are not a member of the team you are trying to submit for.")
+
+        try:
+            team_project = TeamProject.objects.get(team=team, project=project)
+        except TeamProject.DoesNotExist:
+            raise serializers.ValidationError("Your team is not registered for this project.")
 
         if task.order > 0:
             previous_task_order = task.order - 1
             try:
                 previous_task = Task.objects.get(project=project, order=previous_task_order)
-                if not Submission.objects.filter(
-                    user=user,
-                    task=previous_task,
-                    status=PASSED
-                ).exists():
-                    raise serializers.ValidationError(f"You must pass the previous task '{previous_task.name}' before submitting this one.")
+                if not Submission.objects.filter(team=team, task=previous_task, status=PASSED).exists():
+                    raise serializers.ValidationError(
+                        f"Your team must pass the previous task '{previous_task.name}' before submitting this one."
+                    )
             except Task.DoesNotExist:
-                pass
+                raise serializers.ValidationError("Could not find the previous task. Please contact support.")
 
-        user_project = UserProject.objects.filter(user=user, project=project).first()
+        deployment_url = data.get('deployment_url')
+        deployment_url_provided = bool(deployment_url)
 
-        if not user_project:
-            raise serializers.ValidationError("You must be registered for this project to submit a task.")
+        if not deployment_url:
+            data['deployment_url'] = team_project.deployment_url
 
-        if not deployment_url and not user_project.deployment_url:
-            raise serializers.ValidationError("Deployment URL is required for submission as it's not set in your project registration.")
+        if not data.get('deployment_url'):
+            raise serializers.ValidationError({
+                'deployment_url': "Deployment URL is required. "
+                                  "Please provide it in the submission or register it with your project."
+            })
 
-        if deployment_url:
-            # If a new URL is provided, update the registration
-            if user_project.deployment_url != deployment_url:
-                user_project.deployment_url = deployment_url
-                user_project.save()
-        else:
-            # If no URL is provided, use the one from the registration
-            data['deployment_url'] = user_project.deployment_url
+        data['team_project'] = team_project
+        data['deployment_url_provided'] = deployment_url_provided
 
         return data
+
+    def create(self, validated_data):
+        user = self.context['request'].user
+        service = SubmissionService(user=user, validated_data=validated_data)
+        return service.create()
 
 
 class ListTaskSerializer(serializers.ModelSerializer):
