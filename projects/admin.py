@@ -4,7 +4,7 @@ from django.forms import Textarea
 
 from projects.models.categories_difficulties import DifficultyLevel, Category
 from projects.models.prerequisites import Prerequisite, TaskPrerequisite
-from projects.models.projects import Project, UserProject
+from projects.models.projects import Project, TeamProject
 from projects.models.submission import Submission
 from projects.models.tasks_endpoints import Endpoint, Task
 from projects.models.testcases import TestCase, ApiTestCase # Import both new models
@@ -39,11 +39,11 @@ class PrerequisiteAdmin(admin.ModelAdmin):
 class TaskPrerequisiteAdmin(admin.ModelAdmin):
     list_display = ("task", "prerequisite")
 
-@admin.register(UserProject)
-class UserProjectAdmin(admin.ModelAdmin):
-    list_display = ("user", "project", "is_finished")
+@admin.register(TeamProject)
+class TeamProjectAdmin(admin.ModelAdmin):
+    list_display = ("team", "project", "is_finished")
     list_filter = ("is_finished",)
-    search_fields = ("user__username", "project__name")
+    search_fields = ("team__name", "project__name")
 
 
 # --- Inlines for Declarative Test Cases ---
@@ -122,4 +122,3 @@ class SubmissionAdmin(admin.ModelAdmin):
     search_fields = ("user__username", "task__name")
     readonly_fields = ('created_at', 'completed_at')
     formfield_overrides = JSON_TEXTAREA_OVERRIDE
-
