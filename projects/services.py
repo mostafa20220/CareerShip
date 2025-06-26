@@ -6,12 +6,14 @@ from django.utils import timezone
 from django.db import transaction, IntegrityError
 
 from utils.logging_utils import get_logger
-from .models.projects import Project
+from .models.projects import Project, TeamProject
 from .models.tasks_endpoints import Task, Endpoint
 from .models.categories_difficulties import Category, DifficultyLevel
 from .models.prerequisites import Prerequisite, TaskPrerequisite
-from projects.models.submission import Submission
+from projects.models.submission import Submission, PASSED, PENDING
 from .models.testcases import TestCase, TestType, ApiTestCase
+from teams.models import Team
+from .tasks import run_submission_tests
 
 logger = get_logger(__name__)
 
@@ -214,6 +216,50 @@ class ProjectSeederService:
             model_name = model_class.__name__
             field, value = list(kwargs.items())[0]
             raise ProjectCreationError(f"{model_name} with {field} '{value}' not found.")
+
+
+class SubmissionService:
+    def __init__(self, user, validated_data):
+        self.user = user
+        self.validated_data = validated_data
+
+    def create(self):
+        """
+        Creates a submission based on validated data and triggers the test runner.
+        """
+        team_project = self.validated_data['team_project']
+        deployment_url = self.validated_data['deployment_url']
+        deployment_url_provided = self.validated_data['deployment_url_provided']
+
+        submission = self._create_submission()
+
+        if deployment_url_provided:
+            self._update_team_project_deployment_url(team_project, deployment_url)
+
+        run_submission_tests.delay(submission.id)
+        return submission
+
+    def _create_submission(self):
+        """
+        Creates and returns a new Submission instance.
+        """
+        return Submission.objects.create(
+            project=self.validated_data['project'],
+            task=self.validated_data['task'],
+            team=self.validated_data['team'],
+            user=self.user,
+            deployment_url=self.validated_data['deployment_url'],
+            github_url=self.validated_data.get('github_url'),
+            status=PENDING
+        )
+
+    def _update_team_project_deployment_url(self, team_project, deployment_url):
+        """
+        Updates the team's project deployment URL if a new one was provided.
+        """
+        if team_project.deployment_url != deployment_url:
+            team_project.deployment_url = deployment_url
+            team_project.save(update_fields=['deployment_url'])
 
 
 class SubmissionTestRunnerService:

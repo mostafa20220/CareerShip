@@ -13,7 +13,7 @@ import uuid
 
 
 from certificates.models import Certificate
-from projects.models.projects import Project, UserProject
+from projects.models.projects import Project, TeamProject
 from projects.serializers import ProjectSeedSerializer, ProjectSerializer, ProjectDetailsSerializer
 from projects.services import ProjectSeederService, ProjectCreationError
 from utils.logging_utils import get_logger
@@ -49,7 +49,7 @@ class ProjectDetailsView(RetrieveAPIView):
 @permission_classes([IsAuthenticated])
 def request_certificate(request, project_id):
     project = get_object_or_404(Project, id=project_id)
-    user_project = UserProject.objects.filter(user=request.user, project=project, is_finished=True).first()
+    user_project = TeamProject.objects.filter(user=request.user, project=project, is_finished=True).first()
     if not user_project:
         return Response({"detail": "Project not finished by user."}, status=status.HTTP_400_BAD_REQUEST)
     if Certificate.objects.filter(user=request.user, project=project).exists():
@@ -61,7 +61,7 @@ def request_certificate(request, project_id):
 @permission_classes([IsAuthenticated])
 def certificate_available(request, project_id):
     project = get_object_or_404(Project, id=project_id)
-    user_project = UserProject.objects.filter(user=request.user, project=project, is_finished=True).first()
+    user_project = TeamProject.objects.filter(user=request.user, project=project, is_finished=True).first()
     if not user_project:
         return Response({"available": False, "detail": "Project not finished by user."}, status=status.HTTP_400_BAD_REQUEST)
     certificate = Certificate.objects.filter(user=request.user, project=project).exists()
