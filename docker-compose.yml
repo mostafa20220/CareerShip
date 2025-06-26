@@ -42,6 +42,19 @@ services:
       - redis
       - django
     
+  celery-beat:
+    build: .
+    volumes:
+      - .:/code
+    container_name: celery_beat
+    command: celery -A CareerShip beat --loglevel=info
+    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      - redis
+      - django
+
   django:
     build: .
     volumes:

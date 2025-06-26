@@ -11,8 +11,8 @@ from utils.logging_utils import get_logger
 logger = get_logger(__name__)
 
 
-@shared_task
-def run_submission_tests(submission_id: int):
+@shared_task(bind=True, max_retries=3, default_retry_delay=60)
+def run_submission_tests(self, submission_id: int):
     """
     Celery task to run tests for a submission.
     It uses SubmissionTestRunner to encapsulate the logic.
@@ -21,22 +21,25 @@ def run_submission_tests(submission_id: int):
         runner = SubmissionTestRunnerService(submission_id)
         return runner.run()
     except Submission.DoesNotExist:
-        logger.error(f"Submission with ID {submission_id} not found. Halting task.")
-        return f"Submission with ID {submission_id} not found. Halting task."
+        logger.warning(f"Submission with id {submission_id} does not exist.")
     except Exception as e:
-        logger.critical(f"An unexpected error occurred while processing submission {submission_id}: {e}", exc_info=True)
+        logger.error(f"An unexpected error occurred for submission_id {submission_id}: {e}")
         try:
-            # Attempt to update submission to an 'error' state
-            submission = Submission.objects.get(pk=submission_id)
+            submission = Submission.objects.get(id=submission_id)
             submission.status = FAILED
-            submission.feedback = 'An unexpected server error occurred during testing. Please contact support.'
-            submission.execution_logs = [{'error': str(e)}]
-            submission.completed_at = timezone.now()
+            submission.fail_message = "Internal Server Error"
             submission.save()
         except Submission.DoesNotExist:
-            logger.warning(f"Submission {submission_id} was deleted before it could be marked as failed.")
-            pass  # The submission was already gone
-        except Exception as inner_e:
-            logger.error(f"Could not update submission {submission_id} to error state after a critical failure. Reason: {inner_e}", exc_info=True)
+            logger.warning(f"Submission with id {submission_id} does not exist for error update.")
+        raise self.retry(exc=e)
 
-        return f"An unexpected error occurred for submission {submission_id}."
+
+@shared_task
+def requeue_stuck_submissions():
+    """
+    Finds submissions that have been in the pending state for too long and re-queues them.
+    """
+    stuck_submissions = Submission.get_stuck_submissions()
+    for submission in stuck_submissions:
+        logger.info(f"Re-queueing submission {submission.id} which is stuck in pending state.")
+        run_submission_tests.delay(submission.id)
