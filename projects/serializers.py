@@ -2,7 +2,7 @@ from rest_framework import serializers
 
 from projects.models.categories_difficulties import Category, DifficultyLevel
 from projects.models.projects import Project, UserProject
-from projects.models.submission import Submission
+from projects.models.submission import Submission, PASSED
 from projects.models.tasks_endpoints import Task, MethodType, Endpoint
 
 
@@ -110,7 +110,7 @@ class ProjectRegistrationSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = UserProject
-        fields = ['project', 'deployment_url']
+        fields = ["id","project", "deployment_url"]
 
     def validate(self, data):
         user = self.context['request'].user
@@ -138,12 +138,11 @@ class SubmissionDetailsSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 class CreateSubmissionSerializer(serializers.ModelSerializer):
-    deployment_url = serializers.URLField(required=False, allow_blank=True)
 
     class Meta:
         model = Submission
         fields=[
-            'user','project' ,'task', 'status', 'deployment_url',
+            'user','project' ,'task', 'status', 'deployment_url', 'github_url',
         ]
         read_only_fields = [
             'id', 'user', 'status', 'passed_percentage',
@@ -152,14 +151,28 @@ class CreateSubmissionSerializer(serializers.ModelSerializer):
 
     def validate_deployment_url(self, value):
         # Basic validation for the URL
-        if not value.startswith('http://') and not value.startswith('https://'):
+        if value and not value.startswith('http://') and not value.startswith('https://'):
             raise serializers.ValidationError("URL must start with http:// or https://")
         return value
 
     def validate(self, data):
         user = self.context['request'].user
         project = data.get('project')
+        task = data.get('task')
         deployment_url = data.get('deployment_url')
+
+        if task.order > 0:
+            previous_task_order = task.order - 1
+            try:
+                previous_task = Task.objects.get(project=project, order=previous_task_order)
+                if not Submission.objects.filter(
+                    user=user,
+                    task=previous_task,
+                    status=PASSED
+                ).exists():
+                    raise serializers.ValidationError(f"You must pass the previous task '{previous_task.name}' before submitting this one.")
+            except Task.DoesNotExist:
+                pass
 
         user_project = UserProject.objects.filter(user=user, project=project).first()
 
