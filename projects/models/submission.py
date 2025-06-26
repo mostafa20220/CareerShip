@@ -1,4 +1,5 @@
 from django.db import models
+from django.utils import timezone
 
 PENDING = 'pending'
 PASSED  = 'passed'
@@ -39,3 +40,10 @@ class Submission(models.Model):
         fields = [self.status, self.deployment_url, self.completed_at]
         return " - ".join([str(field) for field in fields if field is not None])
 
+    @classmethod
+    def get_stuck_submissions(cls, timeout_minutes=5):
+        """
+        Returns submissions that have been in the pending state for more than `timeout_minutes`.
+        """
+        stuck_time = timezone.now() - timezone.timedelta(minutes=timeout_minutes)
+        return cls.objects.filter(status=PENDING, created_at__lte=stuck_time)
