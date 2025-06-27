@@ -1,34 +1,17 @@
 from django.contrib import admin
-from .models import Team,  TeamUser, Invitation
-
-
-# Inline for displaying team members inside the Team admin page
-class TeamUserInline(admin.TabularInline):  # Use StackedInline for a different layout
-    model = TeamUser
-    extra = 1  # Allows adding one extra inline entry
+from .models import Team ,  Invitation
 
 
 
 
 @admin.register(Team)
 class TeamAdmin(admin.ModelAdmin):
-    list_display = ('name', 'admin', 'is_private', 'created_at')
-    list_filter = ('is_private', 'created_at')
-    search_fields = ('name', 'admin__username')
+    list_display = ('name', 'owner', 'created_at')
+    list_filter = ('created_at',)
+    search_fields = ('name', 'owner__email')
     ordering = ('-created_at',)
     date_hierarchy = 'created_at'
-    inlines = [
-        TeamUserInline,
 
-    ]  # Shows related users and projects inside the team page
-
-
-
-@admin.register(TeamUser)
-class TeamUserAdmin(admin.ModelAdmin):
-    list_display = ('team', 'user')
-    list_filter = ('team', 'user')
-    search_fields = ('team__name', 'user__username')
 
 
 @admin.register(Invitation)
