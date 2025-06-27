@@ -7,6 +7,16 @@ from projects.models.tasks_endpoints import Task, MethodType, Endpoint
 from teams.models import Team
 from .services import SubmissionService
 
+def validate_team(user, value):
+    try:
+        team = Team.objects.get(uuid=value)
+    except Team.DoesNotExist:
+        raise serializers.ValidationError("Team not found.")
+
+    if user not in team.members.all():
+        raise serializers.ValidationError("You are not a member of this team.")
+
+    return team
 
 class CategorySerializer(serializers.ModelSerializer):
 
@@ -108,8 +118,9 @@ class TeamProjectSerializer(serializers.ModelSerializer):
         model = TeamProject
         fields = "__all__"
 
+
 class ProjectRegistrationSerializer(serializers.ModelSerializer):
-    team = serializers.PrimaryKeyRelatedField(queryset=Team.objects.all())
+    team = serializers.UUIDField()
 
     class Meta:
         model = TeamProject
@@ -123,6 +134,9 @@ class ProjectRegistrationSerializer(serializers.ModelSerializer):
         team = data['team']
         project = data['project']
         user = self.context['request'].user
+
+        team = validate_team(user,team)
+        data['team'] = team
 
         if user != team.owner:
             raise serializers.ValidationError("You must be the team owner to register for a project.")
@@ -156,7 +170,7 @@ class SubmissionDetailsSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 class CreateSubmissionSerializer(serializers.ModelSerializer):
-    team = serializers.PrimaryKeyRelatedField(queryset=Team.objects.all())
+    team = serializers.UUIDField()
 
     class Meta:
         model = Submission
@@ -166,6 +180,7 @@ class CreateSubmissionSerializer(serializers.ModelSerializer):
         read_only_fields = [
             'id', 'user', 'status', 'project', 'task'
         ]
+
 
     def validate_deployment_url(self, value):
         if value and not value.startswith(('http://', 'https://')):
@@ -178,9 +193,14 @@ class CreateSubmissionSerializer(serializers.ModelSerializer):
         return value
 
     def validate(self, data):
+
         user = self.context['request'].user
         project_id = self.context['project_id']
         task_id = self.context['task_id']
+        team = data.get('team')
+        team = validate_team(user, team)
+        data['team'] = team
+
 
         try:
             project = Project.objects.get(pk=project_id)
