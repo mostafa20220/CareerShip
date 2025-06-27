@@ -1,122 +1,69 @@
-from django.urls import reverse
 from rest_framework import serializers
-from users.serializers import RetrieveProfileSerializer
+from .models import Team, Invitation
+from users.models import User
 
-from .services import *
+
+class MemberSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ('id', 'first_name', 'last_name', 'email')
+
 
 class TeamSerializer(serializers.ModelSerializer):
-
-    project_id = serializers.PrimaryKeyRelatedField(required=True, queryset=Project.objects.all(), write_only=True)
-    admin = serializers.HiddenField(default=serializers.CurrentUserDefault())
-
-
     class Meta:
         model = Team
-        fields = ["id" , "name" , "is_private", "created_at" , "project_id", "admin"]
-        read_only_fields = ["id","admin"]
+        fields = ('id', 'name')
 
-
-
-
+    #     validate there is no team with the same name for the user
+    def validate_name(self, value):
+        user = self.context['request'].user
+        if Team.objects.filter(name=value, owner=user).exists():
+            raise serializers.ValidationError("A team with this name already exists.")
+        return value
 
     def create(self, validated_data):
-        """Creates a new team and automatically adds the creator as a member."""
-        user = self.context['request'].user
-        project = validated_data.pop('project_id')
-        team_name = validated_data.pop('name')
-
-
-        # Check if the user has an ACTIVE team for this project.
-        if is_user_on_active_team_for_project(user,project):
-            raise serializers.ValidationError(
-                {"error": "You are already part of an Active team for this project."}
-            )
-
-        # create the team
-        team = create_team(team_name=team_name , user=user, project=project)
-        return  team
-
-class LeaveTeamSerializer(serializers.Serializer):
-    team = serializers.PrimaryKeyRelatedField(required=True, queryset=Team.objects.all(), write_only=True)
-    user = serializers.HiddenField(default=serializers.CurrentUserDefault())
-
-
-    def validate(self, attrs):
-        user = attrs.get('user')
-        team = attrs.get('team')
-
-        try:
-            check_if_user_can_leave_team(user=user, team=team)
-        except ValidationError as e:
-
-            raise serializers.ValidationError({"error": e.args[0]})
-
-        return attrs
-
-
-
+        owner = self.context['request'].user
+        team = Team.create_with_owner(name=validated_data['name'], owner=owner)
+        return team
 
 
 class TeamDetailSerializer(serializers.ModelSerializer):
+    owner = MemberSerializer(read_only=True)
+    members = MemberSerializer(many=True, read_only=True)
 
-   project = serializers.SerializerMethodField()
-   users = serializers.SerializerMethodField()
-
-   class Meta:
-       model = Team
-       fields = ["id" , "name", "is_private", "active" , "admin" ,  "project" , "users"]
-       read_only_fields = ["id","admin" , "project" , "users"]
-
-   def get_users(self, obj):
-       team_users = Team.objects.filter(team=obj).first().members.all()
-       return RetrieveProfileSerializer([tu.user for tu in team_users] , many=True).data
-
-   def get_project(self, obj):
-       project = obj.project
-       # Serialize only the id instead of using ProjectSerializer which returns all project tasks ...
-       return {
-           "id": project.id,
-           "name": project.name
-       }
+    class Meta:
+        model = Team
+        fields = ('id', 'name', 'owner', 'members', 'created_at')
 
 
-
-class ChangeTeamAdminSerializer(serializers.Serializer):
-    new_admin = serializers.PrimaryKeyRelatedField(required=True , queryset=User.objects.all())
-
-
-    def save(self):
-        team = self.context['team']
-        new_admin = self.validated_data['new_admin']
-        try:
-            change_team_admin(team, new_admin)
-        except ValidationError as e:
-            raise serializers.ValidationError({"error": e.args[0]})
-        return new_admin
-
-
-class CreateInvitationSerializer(serializers.ModelSerializer):
-    created_by = serializers.HiddenField(default=serializers.CurrentUserDefault())
-    invitation_url = serializers.SerializerMethodField()
+class InvitationSerializer(serializers.ModelSerializer):
+    invitation_url = serializers.CharField(source='get_invitation_url', read_only=True)
 
     class Meta:
         model = Invitation
-        fields = ["id", "created_by", "created_at", "expires_in_days", "invitation_url"]
-        read_only_fields = ["created_by", "created_at", "invitation_url"]
+        fields = ('uuid', 'expires_in_days', 'is_active', 'invitation_url','created_at')
+        read_only_fields = ('uuid', 'is_active', 'invitation_url')
 
-    def get_invitation_url(self, obj):
-        request = self.context.get("request")
-        if request:
-            return request.build_absolute_uri(reverse("invitation-detail", kwargs={"pk": obj.pk}))
-        return reverse("invitation-detail", kwargs={"pk": obj.pk})
+    def create(self, validated_data):
+        request = self.context.get('request')
+        if not request or not request.user:
+            raise serializers.ValidationError("User context is required")
+
+        team = self.context.get('team')
+        if not team:
+            raise serializers.ValidationError("Team context is required")
+
+        validated_data['team'] = team
+        validated_data['created_by'] = request.user
+
+        invitation = Invitation.objects.create(**validated_data)
+        return invitation
 
 
-class InvitationDetailSerializer(serializers.Serializer):
+class MemberEmailSerializer(serializers.Serializer):
+    email = serializers.EmailField()
 
-    team = TeamDetailSerializer()
-    class Meta:
-        model = Invitation
-        fields = ["id" , "created_by", "created_at", "expires_in_days", "team"]
-
-
-
+    def validate_email(self, value):
+        if not User.objects.filter(email=value).exists():
+            raise serializers.ValidationError("User with this email does not exist.")
+        return value

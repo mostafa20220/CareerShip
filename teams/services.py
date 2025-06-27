@@ -1,4 +1,5 @@
 from rest_framework.exceptions import ValidationError
+from django.shortcuts import get_object_or_404
 
 from teams.models import Invitation, Team
 from projects.models.projects import TeamProject, Project
@@ -45,6 +46,61 @@ class InvitationService:
         return {"message": "You have successfully joined the team."}
 
 
+class TeamManagementService:
+    def __init__(self, user):
+        self.user = user
+
+    def add_member(self, team_id, email):
+        team = self._get_team_and_check_ownership(team_id)
+        new_member = self._get_user_by_email(email)
+
+        if is_team_member(user=new_member, team=team):
+            raise ValidationError("User is already a member of this team.")
+
+        team_projects = TeamProject.objects.filter(team=team)
+        for team_project in team_projects:
+            if team.members.count() >= team_project.project.max_team_size:
+                raise ValidationError(f"This team has reached its maximum size for project '{team_project.project.name}'.")
+
+        add_team_member(user=new_member, team=team)
+        return {"message": f"User {email} has been added to the team."}
+
+    def remove_member(self, team_id, email):
+        team = self._get_team_and_check_ownership(team_id)
+        member_to_remove = self._get_user_by_email(email)
+
+        if not is_team_member(user=member_to_remove, team=team):
+            raise ValidationError("User is not a member of this team.")
+
+        if team.owner == member_to_remove:
+            raise ValidationError("You cannot remove the team owner.")
+
+        remove_user_from_team(user=member_to_remove, team=team)
+        return {"message": f"User {email} has been removed from the team."}
+
+    def disable_invitation(self, invitation_id):
+        invitation = get_object_or_404(Invitation, pk=invitation_id)
+        team = invitation.team
+
+        if team.owner != self.user:
+            raise ValidationError("You are not the owner of this team.")
+
+        invitation.is_active = False
+        invitation.save()
+        return {"message": "Invitation has been disabled."}
+
+    def _get_team_and_check_ownership(self, team_id):
+        team = get_object_or_404(Team, pk=team_id)
+        if team.owner != self.user:
+            raise ValidationError("You are not the owner of this team.")
+        return team
+
+    def _get_user_by_email(self, email):
+        user = get_object_or_404(User, email=email)
+        if not user.is_active:
+            raise ValidationError("User is not active.")
+        return user
+
 def is_max_team_size(team: Team, project: Project):
     """Checks if a team size exceeds the maximum team size of a project"""
     return team.members.count() >= project.max_team_size
@@ -82,15 +138,6 @@ def add_team_member(user: User, team: Team):
     team.add_member(user)
 
 
-def create_team(team_name: str, user: User, project: Project):
-    """Create a team and register it for a project."""
-    logger.info(f"User {user.id} creating team '{team_name}' for project {project.id}")
-    team = Team.create_with_owner(name=team_name, owner=user)
-    TeamProject.objects.create(team=team, project=project)
-    logger.info(f"Team {team.id} created successfully.")
-    return team
-
-
 def remove_user_from_team(user: User, team: Team):
     """Remove a user from a team."""
     logger.info(f"Removing user {user.id} from team {team.id}")
@@ -104,11 +151,12 @@ def check_if_user_can_leave_team(user: User, team: Team):
         raise ValidationError("You are not a member of this team.")
 
     if team.members.count() == 1:
-        raise ValidationError(
-            "You are the only member of this team. If you want to leave, please delete the team instead."
-        )
+        if user.teams.count() == 1:
+            # User is the only member of the team and has no other teams
+            raise ValidationError("You are the only member of this team. And you have no other teams.")
 
-    if is_user_team_admin(user=user, team=team):
+
+    if is_user_team_admin(user=user, team=team) and team.members.count() > 1:
         raise ValidationError(
             "You are the admin of this team. To leave, you must first assign admin rights to another team member")
 

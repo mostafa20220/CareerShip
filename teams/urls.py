@@ -1,31 +1,34 @@
 from django.urls import path
+from rest_framework.routers import DefaultRouter
 from . import views
 
-'''
-URLS
+router = DefaultRouter()
+router.register('', views.TeamViewSet, basename='team')
 
+urlpatterns = router.urls + [
+    # Team invitations endpoints
+    path('<int:team_pk>/invitations/', views.InvitationViewSet.as_view({
+        'get': 'list',
+        'post': 'create'
+    }), name='team-invitations-list'),
 
+    path('<int:team_pk>/invitations/<uuid:pk>/', views.InvitationViewSet.as_view({
+        'get': 'retrieve',
+        'put': 'update',
+        'patch': 'partial_update',
+        'delete': 'destroy'
+    }), name='team-invitations-detail'),
 
+    path('<int:team_pk>/invitations/<uuid:pk>/accept/', views.InvitationViewSet.as_view({
+        'post': 'accept'
+    }), name='team-invitations-accept'),
 
-** invitation
-teams/team_id/invite/         POST-> generate invitation with invitation link,
-teams/invite/invite_id        -> GET 
-teams/invite/invite_id/accept -> accept the invitation,
-
-
-'''
-
-
-
-
-urlpatterns = [
-    path('' , views.CreateTeamView.as_view(), name='create_team' ),
-    path('leave/' , views.LeaveTeamView.as_view(), name='leave_team' ),
-    path("<int:pk>/", views.TeamDetailView.as_view(), name="team-detail"),
-    path('<int:team_id>/change-admin' , views.ChangeTeamAdminView.as_view(), name='change_team_admin' ),
-    path('list/', views.ListTeams.as_view(), name='list-create-teams'),
-    # invitations URLs
-    path("<int:pk>/invite/", views.GenerateInviteView.as_view(), name="generate-invitation"),
-    path("invite/<int:pk>/", views.InvitationDetailView.as_view(), name="invitation-detail"),
-    path("invite/<int:invite_id>/accept/", views.AcceptInvitationView.as_view(), name="accept-invitation"),
+    path('<int:team_pk>/invitations/<uuid:pk>/disable/', views.InvitationViewSet.as_view({
+        'post': 'disable'
+    }), name='team-invitations-disable'),
+#     enable endpoint
+    path('<int:team_pk>/invitations/<uuid:pk>/enable/', views.InvitationViewSet.as_view({
+        'post': 'enable'
+    }), name='team-invitations-enable'),
 ]
+

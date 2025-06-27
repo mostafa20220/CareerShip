@@ -3,6 +3,7 @@ from django.conf import settings
 from django.urls import reverse
 import datetime as dt
 from django.utils import timezone
+import uuid
 
 class Team(models.Model):
     name = models.CharField(max_length=255)
@@ -28,11 +29,21 @@ class Team(models.Model):
         team.members.add(owner)
         return team
 
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Team'
+        verbose_name_plural = 'Teams'
+        constraints = [
+            models.UniqueConstraint(fields=['name', 'owner'], name='unique_team_name_per_owner')
+        ]
+
 class Invitation(models.Model):
+    uuid = models.CharField(max_length=36, unique=True, default=uuid.uuid4)
     team = models.ForeignKey('Team', on_delete=models.CASCADE, db_index=True, related_name='invitations')
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='invitations')
     created_at = models.DateTimeField(auto_now_add=True ,db_index=True)
     expires_in_days = models.PositiveSmallIntegerField(default=3)
+    is_active = models.BooleanField(default=True)
 
     def is_expired(self):
         expiration_date = self.created_at + dt.timedelta(days=self.expires_in_days)
@@ -42,4 +53,4 @@ class Invitation(models.Model):
         return f"Invitation created at {self.created_at}, expires in {self.expires_in_days} days"
 
     def get_invitation_url(self):
-        return reverse('invitation_detail', kwargs={'pk': self.pk})
+        return reverse('team-invitations-detail', kwargs={'team_pk': self.team.pk, 'pk': self.uuid})
