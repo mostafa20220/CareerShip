@@ -295,6 +295,7 @@ class SubmissionTestRunnerService:
         self._setup()
         self._execute_test_suite()
         self._finalize_submission()
+        self._mark_project_as_finished()
         return self._get_status_message()
 
     def _setup(self):
@@ -471,9 +472,27 @@ class SubmissionTestRunnerService:
         self.submission.save()
 
     def _get_status_message(self) -> str:
-        """Constructs the final status message for the Celery task."""
-        status = self.submission.status
-        message = f"Finished processing submission {self.submission_id}. Status: {status}."
-        if self.is_submission_failed:
-            message += f" Failure occurred in task '{self.failed_task_name}'."
-        return message
+        """Generates a status message based on the submission results."""
+
+        if self.submission.status == 'passed':
+            return f"Submission {self.submission.id} passed successfully with {self.total_points_earned} points."
+        else:
+            return f"Submission {self.submission.id} failed. Last task: '{self.failed_task_name}'. Points earned: {self.total_points_earned} out of {self.total_possible_points}."
+
+    def _mark_project_as_finished(self):
+        """ Marks the project as finished if the submission passed, and it was the last task."""
+
+        if self.submission.status == PASSED:
+            submitted_task = self.submission.task
+            project = submitted_task.project
+            last_task = project.tasks.order_by('-order').first()
+
+            if submitted_task == last_task:
+                try:
+                    team_project = TeamProject.objects.get(team=self.submission.team, project=project)
+                    team_project.is_finished = True
+                    team_project.finished_at = timezone.now()
+                    team_project.save()
+                    logger.info(f"Team {self.submission.team.id} has finished project {project.id}.")
+                except TeamProject.DoesNotExist:
+                    logger.error(f"TeamProject not found for team {self.submission.team.id} and project {project.id}.")
