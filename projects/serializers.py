@@ -164,7 +164,7 @@ class CreateSubmissionSerializer(serializers.ModelSerializer):
             'id', 'project', 'task', 'team', 'user', 'deployment_url', 'github_url', 'status'
         ]
         read_only_fields = [
-            'id', 'user', 'status'
+            'id', 'user', 'status', 'project', 'task'
         ]
 
     def validate_deployment_url(self, value):
@@ -179,11 +179,24 @@ class CreateSubmissionSerializer(serializers.ModelSerializer):
 
     def validate(self, data):
         user = self.context['request'].user
-        project = data['project']
-        task = data['task']
+        project_id = self.context['project_id']
+        task_id = self.context['task_id']
+
+        try:
+            project = Project.objects.get(pk=project_id)
+        except Project.DoesNotExist:
+            raise serializers.ValidationError("Project not found.")
+
+        try:
+            task = Task.objects.get(pk=task_id, project_id=project_id)
+        except Task.DoesNotExist:
+            raise serializers.ValidationError("Task not found in this project.")
+
         team = data['team']
 
         data['user'] = user
+        data['project'] = project
+        data['task'] = task
 
         if user not in team.members.all():
             raise serializers.ValidationError("You are not a member of the team you are trying to submit for.")
