@@ -12,7 +12,11 @@ class MemberSerializer(serializers.ModelSerializer):
 class TeamSerializer(serializers.ModelSerializer):
     class Meta:
         model = Team
-        fields = ('id', 'name')
+        fields = ('uuid', 'name')
+        lookup_field = 'uuid'
+        extra_kwargs = {
+            'url': {'lookup_field': 'uuid'}
+        }
 
     #     validate there is no team with the same name for the user
     def validate_name(self, value):
@@ -33,7 +37,11 @@ class TeamDetailSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Team
-        fields = ('id', 'name', 'owner', 'members', 'created_at')
+        fields = ('uuid', 'name', 'owner', 'members', 'created_at')
+        lookup_field = 'uuid'
+        extra_kwargs = {
+            'url': {'lookup_field': 'uuid'}
+        }
 
 
 class InvitationSerializer(serializers.ModelSerializer):

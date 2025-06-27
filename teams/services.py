@@ -50,33 +50,63 @@ class TeamManagementService:
     def __init__(self, user):
         self.user = user
 
-    def add_member(self, team_id, email):
-        team = self._get_team_and_check_ownership(team_id)
-        new_member = self._get_user_by_email(email)
+    def add_member(self, team_pk, email):
+        """Add a member to the team."""
+        team = get_object_or_404(Team, pk=team_pk)
+        user_to_add = get_object_or_404(User, email=email)
 
-        if is_team_member(user=new_member, team=team):
-            raise ValidationError("User is already a member of this team.")
+        logger.info(f"User {self.user.id} attempting to add user {user_to_add.id} to team {team.uuid}")
 
+        # Check if the current user is the team owner
+        if team.owner != self.user:
+            logger.warning(f"User {self.user.id} is not the owner of team {team.uuid}")
+            raise ValidationError("Only team owners can add members.")
+
+        # Check if user is already in the team
+        if is_team_member(user=user_to_add, team=team):
+            logger.warning(f"User {user_to_add.id} is already a member of team {team.uuid}")
+            raise ValidationError("This user is already a member of the team.")
+
+        # Check if team is full for any project it's registered in
         team_projects = TeamProject.objects.filter(team=team)
         for team_project in team_projects:
             if team.members.count() >= team_project.project.max_team_size:
+                logger.warning(f"Team {team.uuid} has reached its maximum size for project {team_project.project.id}.")
                 raise ValidationError(f"This team has reached its maximum size for project '{team_project.project.name}'.")
 
-        add_team_member(user=new_member, team=team)
-        return {"message": f"User {email} has been added to the team."}
+        # Add the user to the team
+        add_team_member(user=user_to_add, team=team)
+        logger.info(f"User {user_to_add.id} successfully added to team {team.uuid}")
 
-    def remove_member(self, team_id, email):
-        team = self._get_team_and_check_ownership(team_id)
-        member_to_remove = self._get_user_by_email(email)
+        return {"message": f"User {user_to_add.email} has been added to the team."}
 
-        if not is_team_member(user=member_to_remove, team=team):
-            raise ValidationError("User is not a member of this team.")
+    def remove_member(self, team_pk, email):
+        """Remove a member from the team."""
+        team = get_object_or_404(Team, pk=team_pk)
+        user_to_remove = get_object_or_404(User, email=email)
 
-        if team.owner == member_to_remove:
-            raise ValidationError("You cannot remove the team owner.")
+        logger.info(f"User {self.user.id} attempting to remove user {user_to_remove.id} from team {team.uuid}")
 
-        remove_user_from_team(user=member_to_remove, team=team)
-        return {"message": f"User {email} has been removed from the team."}
+        # Check if the current user is the team owner
+        if team.owner != self.user:
+            logger.warning(f"User {self.user.id} is not the owner of team {team.uuid}")
+            raise ValidationError("Only team owners can remove members.")
+
+        # Cannot remove the team owner
+        if user_to_remove == team.owner:
+            logger.warning(f"Attempted to remove team owner {team.owner.id} from team {team.uuid}")
+            raise ValidationError("Cannot remove the team owner.")
+
+        # Check if user is in the team
+        if not is_team_member(user=user_to_remove, team=team):
+            logger.warning(f"User {user_to_remove.id} is not a member of team {team.uuid}")
+            raise ValidationError("This user is not a member of the team.")
+
+        # Remove the user from the team
+        remove_user_from_team(user=user_to_remove, team=team)
+        logger.info(f"User {user_to_remove.id} successfully removed from team {team.uuid}")
+
+        return {"message": f"User {user_to_remove.email} has been removed from the team."}
 
     def disable_invitation(self, invitation_id):
         invitation = get_object_or_404(Invitation, pk=invitation_id)

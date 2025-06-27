@@ -22,6 +22,8 @@ class TeamViewSet(viewsets.ModelViewSet):
     """
     queryset = Team.objects.all()
     permission_classes = [IsAuthenticated]
+    lookup_url_kwarg = 'uuid'
+    lookup_field = 'uuid'
 
     def get_serializer_class(self):
         if self.action in ['retrieve', 'update', 'partial_update']:
@@ -37,7 +39,7 @@ class TeamViewSet(viewsets.ModelViewSet):
         return super().get_permissions()
 
     @action(detail=True, methods=['post', 'delete'])
-    def members(self, request, pk=None):
+    def members(self, request, uuid=None):
         team = self.get_object()
 
         serializer = MemberEmailSerializer(data=request.data)
@@ -45,16 +47,16 @@ class TeamViewSet(viewsets.ModelViewSet):
         email = serializer.validated_data['email']
         service = TeamManagementService(user=request.user)
         if request.method == 'POST':
-            result = service.add_member(team_id=team.pk, email=email)
+            result = service.add_member(team_pk=team.pk, email=email)
             return Response(result)
 
         elif request.method == 'DELETE':
-            result = service.remove_member(team_id=team.pk, email=email)
+            result = service.remove_member(team_pk=team.pk, email=email)
             return Response(status=status.HTTP_204_NO_CONTENT)
         return None
 
     @action(detail=True, methods=['post'], url_path='leave')
-    def leave(self, request, pk=None):
+    def leave(self, request, uuid=None):
         """
         Allow a user to leave a team.
         """
@@ -96,24 +98,24 @@ class InvitationViewSet(viewsets.ModelViewSet):
     serializer_class = InvitationSerializer
     permission_classes = [IsAuthenticated]
     lookup_field = 'uuid'
-    lookup_url_kwarg = 'pk'
+    lookup_url_kwarg = 'pk'  # Corrected from team_pk
 
     def get_queryset(self):
-        team_id = self.kwargs.get('team_pk')
-        if team_id is None:
+        team_uuid = self.kwargs.get('team_pk')
+        if team_uuid is None:
             return Invitation.objects.none()
-        return Invitation.objects.filter(team_id=team_id)
+        return Invitation.objects.filter(team__uuid=team_uuid)
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
-        team_id = self.kwargs.get('team_pk')
-        if team_id:
-            context['team'] = get_object_or_404(Team, pk=team_id)
+        team_uuid = self.kwargs.get('team_pk')
+        if team_uuid:
+            context['team'] = get_object_or_404(Team, uuid=team_uuid)
         return context
 
     def perform_create(self, serializer):
-        team_id = self.kwargs.get('team_pk')
-        team = get_object_or_404(Team, pk=team_id)
+        team_uuid = self.kwargs.get('team_pk')
+        team = get_object_or_404(Team, uuid=team_uuid)
 
         # Check if user is team owner
         if team.owner != self.request.user:
