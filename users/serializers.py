@@ -1,3 +1,4 @@
+from teams.models import Team
 from users.models import User
 from rest_framework import serializers
 from rest_framework_simplejwt.tokens import RefreshToken, AccessToken
@@ -30,6 +31,17 @@ class LogoutSerializer(serializers.Serializer):
         return validated_data
 
 class RetrieveProfileSerializer(serializers.ModelSerializer):
+    teams = serializers.SerializerMethodField()
+    class Meta:
+        model = User
+        fields = [ 'id' , 'first_name','last_name','email','user_type','is_premium','phone','avatar','teams']
+    def get_teams(self, obj):
+#         return all user joined teams serialized date
+        from teams.serializers import TeamSerializer
+        teams = Team.objects.filter(members=obj)
+        return TeamSerializer(teams, many=True).data
+
+class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = [ 'id' , 'first_name','last_name','email','user_type','is_premium','phone','avatar']
