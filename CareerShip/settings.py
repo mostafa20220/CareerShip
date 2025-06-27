@@ -16,6 +16,7 @@ CSRF_TRUSTED_ORIGINS= config(
     'CSRF_TRUSTED_ORIGINS',
     cast=lambda v: [s.strip() for s in v.split(' ')]
 )
+
 APPEND_SLASH=True
 
 # CELERY SETTINGS
