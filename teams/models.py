@@ -6,13 +6,14 @@ from django.utils import timezone
 import uuid
 
 class Team(models.Model):
+    uuid = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
     name = models.CharField(max_length=255)
     owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='owned_teams')
     members = models.ManyToManyField(settings.AUTH_USER_MODEL, related_name='teams')
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return self.name
+        return f"{self.name} ({self.uuid})"
 
     def add_member(self, user):
         """Add a new member to the team."""
@@ -53,4 +54,4 @@ class Invitation(models.Model):
         return f"Invitation created at {self.created_at}, expires in {self.expires_in_days} days"
 
     def get_invitation_url(self):
-        return reverse('team-invitations-detail', kwargs={'team_pk': self.team.pk, 'pk': self.uuid})
+        return reverse('team-invitations-detail', kwargs={'team_pk': self.team.uuid, 'pk': self.uuid})
