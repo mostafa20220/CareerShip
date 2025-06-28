@@ -1,33 +1,18 @@
 services:
 
-  traefik:
-    image: traefik:v2.10
-    container_name: traefik
-    restart: always
-    command:
-      - --api.dashboard=true
-      - --entrypoints.web.address=:80
-      - --entrypoints.websecure.address=:443
-      - --providers.docker=true
-      - --certificatesresolvers.myresolver.acme.httpchallenge=true
-      - --certificatesresolvers.myresolver.acme.httpchallenge.entrypoint=web
-      - --certificatesresolvers.myresolver.acme.email=${EMAIL}
-      - --certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json
-    ports:
-      - "80:80"
-      - "443:443"
-      - "8081:8080" # Traefik dashboard
+  db:
+    image: postgres:17.2
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - ./letsencrypt:/letsencrypt
-
-
-  redis:
-    image: redis:7.0
-    container_name: redis
+      - careershipdb:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_DB=${DB_NAME}
+    ports:
+      - "5435:5432"
+    env_file:
+      - ./.env
     restart: unless-stopped
-    labels:
-      - "traefik.enable=false"
 
   celery:
     build: .
@@ -55,21 +40,25 @@ services:
       - redis
       - django
 
+
+  redis:
+    image: redis:7.0
+    container_name: redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+
   django:
     build: .
     volumes:
       - .:/code
-    expose:
-      - "${DJANGO_PORT}"
+    ports:
+      - "8000:8001"
+    depends_on:
+      - db
     env_file:
       - ./.env
     restart: unless-stopped
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.django.rule=Host(`${CUSTOM_DOMAIN}`)"
-      - "traefik.http.routers.django.entrypoints=websecure"
-      - "traefik.http.routers.django.tls.certresolver=myresolver"
-      - "traefik.http.services.django.loadbalancer.server.port=${DJANGO_PORT}"
-    depends_on:
-      - traefik
 
+volumes:
+    careershipdb:
