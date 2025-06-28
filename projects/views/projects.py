@@ -33,9 +33,9 @@ class ProjectsListView(ListAPIView):
         difficulty_level = self.request.query_params.get('difficulty_level')
 
         if category:
-            queryset = queryset.filter(category__slug=category)
+            queryset = queryset.filter(category=category)
         if difficulty_level:
-            queryset = queryset.filter(difficulty_level__slug=difficulty_level)
+            queryset = queryset.filter(difficulty_level=difficulty_level)
 
         return queryset
 
