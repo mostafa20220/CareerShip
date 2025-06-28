@@ -1,5 +1,4 @@
 services:
-
   db:
     image: postgres:17.2
     volumes:
@@ -21,8 +20,6 @@ services:
     container_name: celery_worker
     command: celery -A CareerShip worker --loglevel=info
     restart: unless-stopped
-    labels:
-      - "traefik.enable=false"
     depends_on:
       - redis
       - django
@@ -59,6 +56,6 @@ services:
     env_file:
       - ./.env
     restart: unless-stopped
-
+    
 volumes:
     careershipdb:

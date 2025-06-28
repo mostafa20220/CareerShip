@@ -3,7 +3,6 @@ asgiref==3.8.1
 async-timeout==5.0.1
 autopep8==2.3.2
 billiard==4.2.1
-celery==5.4.0
 certifi==2025.1.31
 chardet==5.2.0
 charset-normalizer==3.4.1
@@ -28,6 +27,7 @@ psycopg2==2.9.10
 Pillow==10.4.0
 django_jazzmin==3.0.1
 django_silk==5.3.1
+celery==5.4.0
 django-phonenumber-field~=8.0.0
 django-filter==25.1.0
 phonenumbers==8.12.31
