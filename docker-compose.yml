@@ -56,6 +56,20 @@ services:
     env_file:
       - ./.env
     restart: unless-stopped
-    
+  piston:
+      image: ghcr.io/engineer-man/piston:latest
+      container_name: piston_api
+      privileged: true          # allows the container to create its own namespaces & cgroups
+      restart: unless-stopped
+      ports:
+        - "2000:2000"           # expose REST API on http://localhost:2000
+      volumes:
+        - piston-packages:/piston/packages   # where language runtimes will be cached
+      tmpfs:
+        - /tmp:exec            # ephemeral scratch space inside each job
+      environment: # ← all are optional; tweak as you need
+        - PISTON_MAX_CONCURRENT_JOBS=32
+        - PISTON_DISABLE_NETWORKING=true
 volumes:
     careershipdb:
+    piston-packages:           # keeps compiled language packages between restarts
