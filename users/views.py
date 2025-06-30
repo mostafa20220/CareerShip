@@ -86,3 +86,28 @@ class UserSkillsView(APIView):
         user_skills = UserSkills.objects.filter(user=user)
         serializer = UserSkillsSerializer(user_skills, many=True)
         return Response(serializer.data)
+
+    def post(self, request):
+        user = request.user
+        skill_id = request.data.get('skill_id')
+        if not skill_id:
+            return Response(
+                {'detail': 'skill_id is required.'}, status=status.HTTP_400_BAD_REQUEST
+            )
+        skill = Skill.objects.get(id=skill_id)
+
+        user_skill, created = UserSkills.objects.get_or_create(user=user, skill=skill)
+        if not created:
+            return Response(
+                {'detail': 'Skill already added.'}, status=status.HTTP_400_BAD_REQUEST
+            )
+        return Response({'detail': 'Skill added.'}, status=status.HTTP_201_CREATED)
+
+    def delete(self, request, skill_id=None):
+        user = request.user
+        user_skill = UserSkills.objects.get(user=user, skill_id=skill_id)
+        user_skill.delete()
+        return Response(
+            {'detail': 'Skill removed.'}, status=status.HTTP_204_NO_CONTENT
+        )
+
