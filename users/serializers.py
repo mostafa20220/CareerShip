@@ -1,5 +1,5 @@
 from teams.models import Team
-from users.models import User
+from users.models import User, Skill, UserSkills
 from rest_framework import serializers
 from rest_framework_simplejwt.tokens import RefreshToken, AccessToken
 
@@ -68,3 +68,9 @@ class RemoveUserSerializer(serializers.ModelSerializer):
         user.is_active = False
         user.save()
         return user
+
+
+class SkillsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Skill
+        fields = ['id', 'name']
