@@ -80,6 +80,10 @@ def create_user_team(sender, instance, created, **kwargs):
 class Skill(models.Model):
     name = models.CharField(max_length=255, unique=True)
 
+
 class UserSkills(models.Model):
     user = models.ForeignKey('User', on_delete=models.CASCADE, db_index=True)
     skill = models.ForeignKey('Skill', on_delete=models.CASCADE, db_index=True)
+
+    class Meta:
+        unique_together = ('user', 'skill')
