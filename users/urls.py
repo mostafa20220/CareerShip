@@ -28,4 +28,9 @@ urlpatterns = [
     # Skills endpoints
     path('skills/', SkillsView.as_view(), name='skills-list'),
     path('user-skills/', UserSkillsView.as_view(), name='user-skills-list'),
+    path(
+        'user-skills/<int:skill_id>/',
+        UserSkillsView.as_view(),
+        name='user-skills-delete',
+    ),
 ]
