@@ -74,3 +74,12 @@ class SkillsSerializer(serializers.ModelSerializer):
     class Meta:
         model = Skill
         fields = ['id', 'name']
+
+
+class UserSkillsSerializer(serializers.ModelSerializer):
+    skill_id = serializers.IntegerField(source='skill.id')
+    skill_name = serializers.CharField(source='skill.name')
+
+    class Meta:
+        model = UserSkills
+        fields = ['skill_id', 'skill_name']
