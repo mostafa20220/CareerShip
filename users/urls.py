@@ -6,6 +6,8 @@ from users.views import (
     ProfileView,
     GoogleLoginView,
     GitHubLoginView,
+    SkillsView,
+    UserSkillsView,
 )
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
@@ -23,4 +25,7 @@ urlpatterns = [
     path('dj-rest-auth/registration/', include('dj_rest_auth.registration.urls')),
     path('dj-rest-auth/google/', GoogleLoginView.as_view(), name='google_login'),
     path('dj-rest-auth/github/', GitHubLoginView.as_view(), name='github_login'),
+    # Skills endpoints
+    path('skills/', SkillsView.as_view(), name='skills-list'),
+    path('user-skills/', UserSkillsView.as_view(), name='user-skills-list'),
 ]
