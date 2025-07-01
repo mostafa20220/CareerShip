@@ -1,4 +1,5 @@
 from django.db import models
+from rest_framework.fields import empty
 
 from projects.models.tasks_endpoints import Task, Endpoint
 
@@ -6,6 +7,7 @@ from projects.models.tasks_endpoints import Task, Endpoint
 class TestType(models.TextChoices):
     API_REQUEST = 'API_REQUEST', 'API Request & Response'
     JSON_VALIDATION = 'JSON_VALIDATION', 'JSON Structure Validation'
+    CONSOLE_APPLICATION = 'CONSOLE_APPLICATION', 'Console Application'
 
 
 class TestCase(models.Model):
@@ -31,6 +33,11 @@ class TestCase(models.Model):
         default=0,
         help_text="Execution order of the test (e.g., 0, 1, 2...). Tests run in ascending order."
     )
+
+    ## command_args maybe useful for cli apps
+    command_args = models.JSONField(default=list,blank=True,null=True, help_text="Command line arguments")
+    input_data = models.TextField(blank=True, help_text="Input data for console application")
+    expected_output = models.TextField(blank=True, help_text="Expected console output")
 
     class Meta:
         # --- AND ADD THIS META OPTION ---

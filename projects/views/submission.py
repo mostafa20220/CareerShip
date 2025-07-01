@@ -5,7 +5,8 @@ from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 from projects.models.submission import Submission
 from projects.serializers import SubmissionDetailsSerializer, ListProjectSubmissionsSerializer, \
-    CreateSubmissionSerializer
+    CreateSubmissionSerializer, CreateConsoleSubmissionSerializer
+
 
 class SubmissionViewSet(ModelViewSet):
     permission_classes = [IsAuthenticated]
@@ -31,7 +32,14 @@ class SubmissionViewSet(ModelViewSet):
         if self.action == 'list':
             return ListProjectSubmissionsSerializer
         if self.action == 'create':
-            return CreateSubmissionSerializer
+            from projects.models.projects import Project
+            project_id = self.kwargs.get("project_id")
+            project = get_object_or_404(Project, pk=project_id)
+            if project.category.name == 'Console':
+                return CreateConsoleSubmissionSerializer
+            else:
+                return CreateSubmissionSerializer
+
         return SubmissionDetailsSerializer
 
     def create(self, request, *args, **kwargs):

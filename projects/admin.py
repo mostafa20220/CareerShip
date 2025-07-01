@@ -64,7 +64,7 @@ class TestCaseAdmin(admin.ModelAdmin):
     search_fields = ('name', 'task__name')
     inlines = [ApiTestCaseInline]
     # Specify the field order for the main TestCase form
-    fields = ('task', 'name', 'description', 'test_type', 'points', 'stop_on_failure')
+    fields = ('task', 'name', 'description', 'test_type', 'order', 'points', 'stop_on_failure' , 'input_data', 'command_args', 'expected_output')
 
     def check_order(self, request, obj, form, change):
         # Get the task from the form

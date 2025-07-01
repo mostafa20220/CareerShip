@@ -14,9 +14,14 @@ def run_submission_tests(self, submission_id: int):
     Celery task to run tests for a submission.
     It uses SubmissionTestRunner to encapsulate the logic.
     """
-    from projects.services import SubmissionTestRunnerService
+    from projects.services import SubmissionTestRunnerService , ConsoleSubmissionTestRunnerService
     try:
-        runner = SubmissionTestRunnerService(submission_id)
+        submission = Submission.objects.get(id=submission_id)
+        if submission.project.category.name == "Console":
+            print("Console Project")
+            runner = ConsoleSubmissionTestRunnerService(submission_id)
+        else:
+            runner = SubmissionTestRunnerService(submission_id)
         return runner.run()
     except Submission.DoesNotExist:
         logger.warning(f"Submission with id {submission_id} does not exist.")

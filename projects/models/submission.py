@@ -1,6 +1,8 @@
 from django.db import models
 from django.utils import timezone
 
+from projects.models.constants import PistonLanguages
+
 PENDING = 'pending'
 PASSED  = 'passed'
 FAILED  = 'failed'
@@ -9,6 +11,8 @@ status_choices = (
     (PASSED, 'Passed'),
     (FAILED, 'Failed'),
 )
+
+
 
 class Submission(models.Model):
     project = models.ForeignKey('Project', on_delete=models.CASCADE, db_index=True, related_name='submissions')
@@ -32,6 +36,10 @@ class Submission(models.Model):
 
     completed_at = models.DateTimeField(null=True, blank=True, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+
+    language = models.CharField(max_length=50,  null=True, blank=True, choices=PistonLanguages.choices)
+    code = models.TextField(null=True, blank=True, help_text="Code submitted by the user.")
 
     class Meta:
         ordering = ['-created_at']

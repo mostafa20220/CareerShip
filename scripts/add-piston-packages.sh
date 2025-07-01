@@ -2,7 +2,7 @@
 
      
  
-languages="go gcc python rust"
+languages="go python"
  
 for lang in $languages; do
   echo "[piston-entry] Installing $lang via API..."

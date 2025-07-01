@@ -1,4 +1,5 @@
 import re
+from abc import ABC, abstractmethod
 from typing import List, Dict, Any
 import jsonschema
 import requests
@@ -262,6 +263,43 @@ class SubmissionService:
             team_project.save(update_fields=['deployment_url'])
 
 
+class ConsoleSubmissionService:
+    """
+    Service for handling console application submissions.
+    """
+    def __init__(self, user, validated_data):
+        self.user = user
+        self.validated_data = validated_data
+
+    def create(self):
+        """
+        Creates a submission based on validated data and triggers the console test runner.
+        """
+        submission = self._create_submission()
+        run_submission_tests.delay(submission.id)
+        # self._trigger_test_execution(submission)
+        return submission
+
+    def _create_submission(self):
+        """
+        Creates and returns a new Submission instance for console applications.
+        """
+        return Submission.objects.create(
+            project=self.validated_data['project'],
+            task=self.validated_data['task'],
+            team=self.validated_data['team'],
+            user=self.user,
+            language=self.validated_data['language'],
+            code=self.validated_data['code'],
+            github_url=self.validated_data.get('github_url'),
+            status=PENDING
+        )
+
+
+
+
+
+
 class SubmissionTestRunnerService:
     """
     Encapsulates the logic for running all tests for a given submission.
@@ -496,3 +534,197 @@ class SubmissionTestRunnerService:
                     logger.info(f"Team {self.submission.team.id} has finished project {project.id}.")
                 except TeamProject.DoesNotExist:
                     logger.error(f"TeamProject not found for team {self.submission.team.id} and project {project.id}.")
+
+
+# i'm not touching your code 🙏
+# remove if sounds bad ya mostafa
+
+class BaseSubmissionTestRunnerService(ABC):
+    """
+    Base class for running tests for a given submission.
+    Contains shared logic for setting up, running tests, and recording results.
+    """
+
+    def __init__(self, submission_id: int):
+        self.submission_id = submission_id
+        self.submission = None
+        self.full_results_log = []
+        self.is_submission_failed = False
+        self.total_points_earned = 0
+        self.total_possible_points = 0
+        self.failed_task_name = ""
+        self.project_tasks = []
+
+    def run(self):
+        """Main method to run the entire test suite for the submission."""
+        self._setup()
+        self._execute_test_suite()
+        self._finalize_submission()
+        return self._get_status_message()
+
+    def _setup(self):
+        """Prepares for the test run."""
+        # Removed: self.submission = Submission.objects.select_related('task__project').get(pk=self.submission_id)
+        # log the project tasks being tested
+        logger.info(f"Running tests for project tasks: {[task.name for task in self.project_tasks]}")
+        self.total_possible_points = self._calculate_total_possible_points()
+
+    def _calculate_total_possible_points(self):
+        """Calculates the total possible points for the test cases in the submission."""
+        return sum(
+            tc.points for task in self.project_tasks for tc in TestCase.objects.filter(task=task)
+        )
+
+    def _execute_test_suite(self):
+        """Executes all test cases."""
+        for task in self.project_tasks:
+            self._run_tests_for_task(task)
+            if self.is_submission_failed:
+                self.failed_task_name = task.name
+                break
+
+    def _run_tests_for_task(self, task):
+        """Runs all test cases for a single task."""
+        test_cases = self._get_test_cases_for_task(task)
+        if not test_cases.exists():
+            return
+
+        for i, test_case in enumerate(test_cases):
+            passed, feedback = self._run_single_test_case(test_case)
+            self._log_result(task, test_case, passed, feedback)
+
+            if not passed:
+                self.is_submission_failed = True
+                if test_case.stop_on_failure:
+                    self._skip_remaining_tests_in_task(task, test_cases[i + 1:])
+                    break
+
+    def _log_result(self, task, test_case, passed, feedback):
+        """Records the test result."""
+        points_earned = test_case.points if passed else 0
+        if passed:
+            self.total_points_earned += points_earned
+
+        self.full_results_log.append({
+            "task_id": task.id,
+            "task_name": task.name,
+            "test_case_id": test_case.id,
+            "name": test_case.name,
+            "passed": passed,
+            "points_earned": points_earned,
+            "feedback": feedback,
+        })
+
+    def _skip_remaining_tests_in_task(self, task, skipped_tests):
+        """Logs skipped test cases."""
+        for test_case in skipped_tests:
+            self.full_results_log.append({
+                "task_id": task.id,
+                "task_name": task.name,
+                "test_case_id": test_case.id,
+                "name": test_case.name,
+                "passed": False,
+                "points_earned": 0,
+                "feedback": "Skipped due to previous test failure",
+            })
+
+    def _finalize_submission(self):
+        """Updates the submission with test results."""
+        self.submission.execution_logs = self.full_results_log
+        self.submission.passed_tests = len([res for res in self.full_results_log if res['passed']])
+        self.submission.passed_percentage = (self.total_points_earned / self.total_possible_points) * 100 if self.total_possible_points > 0 else 0
+        self.submission.status = 'failed' if self.is_submission_failed else 'passed'
+        self.submission.completed_at = timezone.now()
+        self.submission.save()
+
+    def _get_status_message(self) -> str:
+        """Returns a summary of the test execution."""
+        if self.submission.status == 'passed':
+            return f"Submission {self.submission.id} passed successfully with {self.total_points_earned} points."
+        else:
+            return f"Submission {self.submission.id} failed. Points earned: {self.total_points_earned} out of {self.total_possible_points}."
+
+    @abstractmethod
+    def _get_test_cases_for_task(self, task):
+        """Retrieve the test cases associated with the task. To be implemented by subclasses."""
+        pass
+
+    @abstractmethod
+    def _run_single_test_case(self, test_case):
+        """Run a single test case. To be implemented by subclasses."""
+        pass
+
+class ConsoleSubmissionTestRunnerService(BaseSubmissionTestRunnerService):
+    """
+    Service responsible for running console application tests using Piston API.
+    """
+
+    def __init__(self, submission_id: int):
+        super().__init__(submission_id)
+        # Fetch the submission here so self.submission is available
+        self.submission = Submission.objects.select_related('task__project').get(pk=self.submission_id)
+        self.piston_url = "http://piston_api:2000/api/v2/execute"
+        submitted_task = self.submission.task
+        self.project_tasks = submitted_task.project.tasks.filter(order__lte=submitted_task.order).order_by('order')
+
+
+    def _get_test_cases_for_task(self, task):
+        """Fetches test cases for the console task."""
+        return TestCase.objects.filter(task=task).order_by('order')
+
+    def _run_single_test_case(self, test_case: TestCase):
+        """Executes one test case using Piston API."""
+        print("running single test case")
+
+        try:
+            # Prepare payload for Piston API and run the test
+            payload = {
+                "language": self.submission.language,
+                "version": "*",  # Using latest version
+                "files": [
+                    {
+                        "name": "main." + self._get_file_extension(self.submission.language),
+                        "content": self.submission.code
+                    }
+                ],
+                "stdin": test_case.input_data,  # Assuming you add this field to TestCase model
+                "args": test_case.command_args,  # Assuming you add this field to TestCase model
+                "compile_timeout": 10000,
+                "run_timeout": 3000,
+                "compile_memory_limit": -1,
+                "run_memory_limit": -1
+            }
+
+            print(payload)
+            response = requests.post(self.piston_url, json=payload, timeout=15)
+            print(response)
+            if response.status_code != 200:
+                return False, f"Piston API error: {response.text}"
+
+            result = response.json()
+            if result.get('compile') and result['compile'].get('code') != 0:
+                return False, f"Compilation error: {result['compile'].get('stderr', 'Unknown error')}"
+            if result.get('run', {}).get('code') != 0:
+                return False, f"Runtime error: {result['run'].get('stderr', 'Unknown error')}"
+
+            actual_output = result.get('run', {}).get('stdout', '').strip()
+            expected_output = test_case.expected_output.strip()
+
+            print("actual_output" , actual_output)
+            print("expected_output" , expected_output)
+            if actual_output == expected_output:
+                return True, "Test passed successfully"
+            else:
+                return False, f"Output mismatch. Expected: {expected_output}, Got: {actual_output}"
+
+        except Exception as e:
+            logger.error(f"Error running test case {test_case.id}: {str(e)}", exc_info=True)
+            return False, f"Test execution error: {str(e)}"
+
+    def _get_file_extension(self, language: str) -> str:
+        """Returns the file extension based on the programming language."""
+        extensions = {
+            'python': 'py', 'javascript': 'js', 'java': 'java', 'cpp': 'cpp', 'c': 'c', 'go': 'go', 'rust': 'rs'
+        }
+        return extensions.get(language.lower(), 'txt')
+

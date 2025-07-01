@@ -5,7 +5,9 @@ from projects.models.projects import Project, TeamProject
 from projects.models.submission import Submission, PASSED
 from projects.models.tasks_endpoints import Task, MethodType, Endpoint
 from teams.models import Team
-from .services import SubmissionService
+from .models.constants import PistonLanguages
+from .services import SubmissionService, ConsoleSubmissionService
+
 
 def validate_team(user, value):
     try:
@@ -218,9 +220,6 @@ class CreateSubmissionSerializer(serializers.ModelSerializer):
         data['project'] = project
         data['task'] = task
 
-        if user not in team.members.all():
-            raise serializers.ValidationError("You are not a member of the team you are trying to submit for.")
-
         try:
             team_project = TeamProject.objects.get(team=team, project=project)
         except TeamProject.DoesNotExist:
@@ -258,6 +257,112 @@ class CreateSubmissionSerializer(serializers.ModelSerializer):
         user = self.context['request'].user
         service = SubmissionService(user=user, validated_data=validated_data)
         return service.create()
+
+
+class CreateConsoleSubmissionSerializer(serializers.ModelSerializer):
+
+    team = serializers.UUIDField()
+    language = serializers.ChoiceField(
+        choices=PistonLanguages.choices,
+        required=True,
+        error_messages={
+            'required': 'Programming language is required for console submissions.',
+            'invalid_choice': 'Invalid programming language. Please choose from the available options.'
+        }
+    )
+    code = serializers.CharField(
+        required=True,
+        style={'base_template': 'textarea.html'},
+        error_messages={
+            'required': 'Code is required for console submissions.',
+            'blank': 'Code cannot be empty.'
+        }
+    )
+
+    class Meta:
+        model = Submission
+        fields = [
+            'id',
+            'project',
+            'task',
+            'team',
+            'user',
+            'github_url',
+            'status',
+            'language',
+            'code'
+        ]
+        read_only_fields = [
+            'id',
+            'user',
+            'status',
+            'project',
+            'task'
+        ]
+
+
+    def validate_code(self, value):
+        if not value or not value.strip():
+            raise serializers.ValidationError("Code cannot be empty or contain only whitespace.")
+        return value.strip()
+
+    def validate(self, data):
+        user = self.context['request'].user
+        project_id = self.context['project_id']
+        task_id = self.context['task_id']
+        team = validate_team(user, data.get('team'))
+        print(team)
+        data['team'] = team
+
+        # Validate project and task
+        try:
+            project = Project.objects.get(pk=project_id)
+        except Project.DoesNotExist:
+            raise serializers.ValidationError("Project not found.")
+
+        try:
+            task = Task.objects.get(pk=task_id, project_id=project_id)
+        except Task.DoesNotExist:
+            raise serializers.ValidationError("Task not found in this project.")
+
+
+
+        # Validate team membership
+        if user not in team.members.all():
+            raise serializers.ValidationError("You are not a member of the team you are trying to submit for.")
+
+        # Validate team project registration
+        try:
+            team_project = TeamProject.objects.get(team=team, project=project)
+        except TeamProject.DoesNotExist:
+            raise serializers.ValidationError("Your team is not registered for this project.")
+
+        # Validate previous task completion
+        if task.order > 0:
+            previous_task_order = task.order - 1
+            try:
+                previous_task = Task.objects.get(project=project, order=previous_task_order)
+                if not Submission.objects.filter(team=team, task=previous_task, status=PASSED).exists():
+                    raise serializers.ValidationError(
+                        f"Your team must pass the previous task '{previous_task.name}' before submitting this one."
+                    )
+            except Task.DoesNotExist:
+                raise serializers.ValidationError("Could not find the previous task. Please contact support.")
+
+        # Add validated objects to data
+        data['user'] = user
+        data['project'] = project
+        data['task'] = task
+        data['team_project'] = team_project
+
+        return data
+
+    def create(self, validated_data):
+        user = self.context['request'].user
+        service = ConsoleSubmissionService(user=user, validated_data=validated_data)
+        return service.create()
+
+
 
 
 class ListTaskSerializer(serializers.ModelSerializer):
