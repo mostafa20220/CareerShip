@@ -66,6 +66,20 @@ class TestCaseAdmin(admin.ModelAdmin):
     # Specify the field order for the main TestCase form
     fields = ('task', 'name', 'description', 'test_type', 'points', 'stop_on_failure')
 
+    def check_order(self, request, obj, form, change):
+        # Get the task from the form
+        task = form.cleaned_data.get('task')
+        order = form.cleaned_data.get('order')
+
+        # Check if there's already a test case with this order for the same task
+        if task and order:
+            existing = TestCase.objects.filter(task=task, order=order)
+            if change:  # If editing existing object
+                existing = existing.exclude(pk=obj.pk)
+            if existing.exists():
+                from django.core.exceptions import ValidationError
+                raise ValidationError('A test case with this order already exists for this task.')
+
 
 # --- Inlines for Project and Task Admins ---
 
