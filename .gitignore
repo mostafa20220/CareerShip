@@ -97,3 +97,5 @@ static/
 /media/
 /careership-vm-keypair.pem
 /cli-user_accessKeys.csv
+
+celerybeat-schedule
