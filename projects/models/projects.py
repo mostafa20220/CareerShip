@@ -10,8 +10,20 @@ class Project(models.Model):
         related_name='projects',
     )
     category = models.ForeignKey(
-        'Category', on_delete=models.CASCADE,  db_index=True, related_name='projects'
+        'Category',
+        on_delete=models.CASCADE,
+        db_index=True,
+        related_name='projects'
     )
+    created_by = models.ForeignKey(
+        'users.User',
+        on_delete=models.CASCADE,
+        related_name='created_projects',
+        db_index=True,
+        null=True,
+        blank=True
+    )
+    is_public = models.BooleanField(default=True, db_index=True)
     name = models.CharField(max_length=255)
     description = models.TextField()
     slug = models.SlugField(unique=True)

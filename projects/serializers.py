@@ -5,7 +5,9 @@ from projects.models.projects import Project, TeamProject
 from projects.models.submission import Submission, PASSED
 from projects.models.tasks_endpoints import Task, MethodType, Endpoint
 from teams.models import Team
-from .services import SubmissionService
+from .models import ProjectDraft
+from .services.submissions_services import SubmissionService
+from .services.draft_service import DraftService
 
 def validate_team(user, value):
     try:
@@ -17,6 +19,42 @@ def validate_team(user, value):
         raise serializers.ValidationError("You are not a member of this team.")
 
     return team
+
+class ProjectDraftSerializer(serializers.ModelSerializer):
+    prompt = serializers.CharField(write_only=True, min_length=10)
+    category_id = serializers.PrimaryKeyRelatedField(
+        queryset=Category.objects.all(), write_only=True, source='category'
+    )
+    difficulty_level_id = serializers.PrimaryKeyRelatedField(
+        queryset=DifficultyLevel.objects.all(), write_only=True, source='difficulty_level', required=False
+    )
+    is_public = serializers.BooleanField(write_only=True, default=False)
+
+    class Meta:
+        model = ProjectDraft
+        fields = [
+            'id', 'status', 'is_public', 'category', 'difficulty_level',
+            'latest_project_json', 'conversation_history', 'created_at',
+            'prompt', 'category_id', 'difficulty_level_id'
+        ]
+        read_only_fields = [
+            'id', 'status', 'category', 'difficulty_level',
+            'latest_project_json', 'conversation_history', 'created_at'
+        ]
+
+    def create(self, validated_data):
+        user = self.context['request'].user
+        draft_service = DraftService(user)
+
+        # The source mapping handles category and difficulty_level assignment
+        # We just need to pass the core data to the service.
+        return draft_service.create_draft(
+            prompt=validated_data['prompt'],
+            category_id=validated_data['category'].id,
+            difficulty_level_id=validated_data.get('difficulty_level').id if validated_data.get('difficulty_level') else None,
+            is_public=validated_data['is_public']
+        )
+
 
 class CategorySerializer(serializers.ModelSerializer):
 

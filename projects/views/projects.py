@@ -19,7 +19,7 @@ from projects.serializers import (
     ProjectSerializer,
     ProjectDetailsSerializer,
 )
-from projects.services import ProjectSeederService, ProjectCreationError
+from projects.services.project_seed_service import ProjectCreationError, ProjectSeederService
 from utils.logging_utils import get_logger
 
 logger = get_logger(__name__)
