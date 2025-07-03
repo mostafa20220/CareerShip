@@ -2,7 +2,8 @@ from django.test import TestCase
 from django.db.utils import IntegrityError
 from certificates.models import Certificate
 from users.models import User
-from projects.models import Project, Category, DifficultyLevel
+from projects.models.projects import Project
+from projects.models.categories_difficulties import Category, DifficultyLevel
 import uuid
 from django.urls import reverse
 from rest_framework.test import APITestCase, APIClient
@@ -72,13 +73,13 @@ class CertificateAPITest(APITestCase):
 
     def setUp(self):
         """Set up users, project, and certificates for API tests."""
-        self.user = User.objects.create_user(
+        self.user = User.objects.create(
             email='omar_cert_api@gmail.com',
             first_name='Omar',
             last_name='Khaled',
             password='test123',
         )
-        self.other_user = User.objects.create_user(
+        self.other_user = User.objects.create(
             email='ahmed_cert_api@gmail.com',
             first_name='Ahmed',
             last_name='Ali',
