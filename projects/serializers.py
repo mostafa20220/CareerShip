@@ -6,7 +6,7 @@ from projects.models.submission import Submission, PASSED
 from projects.models.tasks_endpoints import Task, MethodType, Endpoint
 from teams.models import Team
 from .models.constants import PistonLanguages
-from .services import SubmissionService, ConsoleSubmissionService
+from .services import SubmissionService, ConsoleSubmissionService, FrontendSubmissionService
 
 
 def validate_team(user, value):
@@ -437,3 +437,63 @@ class ProjectSeedSerializer(serializers.Serializer):
         if not value:
             raise serializers.ValidationError("A project must have at least one task.")
         return value
+
+
+class CreateFrontendSubmissionSerializer(CreateSubmissionSerializer):
+    """
+    Frontend-specific submission serializer that inherits from CreateSubmissionSerializer
+    and adds additional validation and features for frontend projects.
+    """
+
+    # Additional field to trigger automatic screenshot comparison
+    trigger_screenshot_analysis = serializers.BooleanField(
+        default=True,
+        required=False,
+        help_text="Whether to automatically trigger screenshot comparison analysis"
+    )
+
+    class Meta(CreateSubmissionSerializer.Meta):
+        fields = CreateSubmissionSerializer.Meta.fields + ['trigger_screenshot_analysis']
+
+    def validate_deployment_url(self, value):
+        # Call parent validation first
+        value = super().validate_deployment_url(value)
+
+        # Additional frontend-specific validation
+        if value:
+            # You can add frontend-specific URL validation here
+            # For example, checking if it's a valid web URL, not an API endpoint
+            if '/api/' in value.lower():
+                raise serializers.ValidationError(
+                    "Please provide the frontend application URL, not the API endpoint."
+                )
+
+        return value
+
+    def validate(self, data):
+        # Call parent validation
+        data = super().validate(data)
+
+        # Additional frontend-specific validation
+        project = data.get('project')
+
+        # Ensure this is actually a frontend project
+        if project and project.category.name.lower() not in ['frontend', 'web', 'ui', 'react', 'vue', 'angular']:
+            raise serializers.ValidationError(
+                "This serializer should only be used for frontend projects."
+            )
+
+        # For frontend projects, deployment URL is mandatory
+        if not data.get('deployment_url'):
+            raise serializers.ValidationError({
+                'deployment_url': "Deployment URL is mandatory for frontend project submissions. "
+                                  "Please provide a valid URL where your application is deployed."
+            })
+
+        return data
+
+    def create(self, validated_data):
+        # Use the FrontendSubmissionService instead of the base service
+        user = self.context['request'].user
+        service = FrontendSubmissionService(user=user, validated_data=validated_data)
+        return service.create()

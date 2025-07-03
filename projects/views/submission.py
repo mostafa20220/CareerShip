@@ -5,7 +5,7 @@ from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 from projects.models.submission import Submission
 from projects.serializers import SubmissionDetailsSerializer, ListProjectSubmissionsSerializer, \
-    CreateSubmissionSerializer, CreateConsoleSubmissionSerializer
+    CreateSubmissionSerializer, CreateConsoleSubmissionSerializer, CreateFrontendSubmissionSerializer
 
 
 class SubmissionViewSet(ModelViewSet):
@@ -37,6 +37,8 @@ class SubmissionViewSet(ModelViewSet):
             project = get_object_or_404(Project, pk=project_id)
             if project.category.name == 'Console':
                 return CreateConsoleSubmissionSerializer
+            elif project.category.name == 'Frontend':
+                return CreateFrontendSubmissionSerializer
             else:
                 return CreateSubmissionSerializer
 

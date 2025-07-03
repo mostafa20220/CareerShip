@@ -4,7 +4,7 @@ from django.forms import Textarea
 
 from projects.models.categories_difficulties import DifficultyLevel, Category
 from projects.models.prerequisites import Prerequisite, TaskPrerequisite
-from projects.models.projects import Project, TeamProject
+from projects.models.projects import Project, TeamProject, ScreenshotComparison, TaskReferenceImage
 from projects.models.submission import Submission
 from projects.models.tasks_endpoints import Endpoint, Task
 from projects.models.testcases import TestCase, ApiTestCase # Import both new models
@@ -136,3 +136,53 @@ class SubmissionAdmin(admin.ModelAdmin):
     search_fields = ("user__username", "task__name")
     readonly_fields = ('created_at', 'completed_at')
     formfield_overrides = JSON_TEXTAREA_OVERRIDE
+
+    fieldsets = (
+        (None, {
+            'fields': ('task', 'name', 'description', 'image')
+        }),
+        ('Viewport Settings', {
+            'fields': ('viewport_width', 'viewport_height'),
+            'description': 'Screenshot viewport dimensions for comparison'
+        }),
+        ('Metadata', {
+            'fields': ('created_at',),
+            'classes': ('collapse',)
+        })
+    )
+
+
+@admin.register(ScreenshotComparison)
+class ScreenshotComparisonAdmin(admin.ModelAdmin):
+    list_display = ("team_project", "reference_image", "similarity_score", "status", "created_at")
+    list_filter = ("status", "created_at", "team_project__project__name")
+    search_fields = ("team_project__team__name", "reference_image__name", "feedback_text")
+    readonly_fields = ("created_at", "similarity_score", "feedback_text", "screenshot")
+
+    fieldsets = (
+        (None, {
+            'fields': ('team_project', 'reference_image', 'status')
+        }),
+        ('Comparison Results', {
+            'fields': ('similarity_score', 'feedback_text'),
+            'classes': ('collapse',)
+        }),
+        ('Images', {
+            'fields': ('screenshot',),
+            'classes': ('collapse',)
+        }),
+        ('Metadata', {
+            'fields': ('created_at',),
+            'classes': ('collapse',)
+        })
+    )
+
+    def has_add_permission(self, request):
+        # Prevent manual creation of screenshot comparisons
+        return False
+
+class ReferenceImageInline(admin.TabularInline):
+    model = TaskReferenceImage
+    extra = 1
+    fields = ('name', 'image', 'viewport_width', 'viewport_height')
+    show_change_link = True

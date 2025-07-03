@@ -14,7 +14,7 @@ from .models.prerequisites import Prerequisite, TaskPrerequisite
 from projects.models.submission import Submission, PASSED, PENDING
 from .models.testcases import TestCase, TestType, ApiTestCase
 from teams.models import Team
-from .tasks import run_submission_tests
+from .tasks import run_submission_tests, process_screenshot_comparison
 
 logger = get_logger(__name__)
 
@@ -296,8 +296,55 @@ class ConsoleSubmissionService:
         )
 
 
+class FrontendSubmissionService:
+    """
+    Service for handling frontend application submissions.
+    """
 
+    def __init__(self, user, validated_data):
+        self.user = user
+        self.validated_data = validated_data
 
+    def create(self):
+        """
+        Creates a submission based on validated data and triggers both
+        regular test runner and screenshot comparison for frontend projects.
+        """
+        submission = self._create_submission()
+        self._update_team_project_deployment_url()
+
+        # Trigger regular test execution
+        run_submission_tests.delay(submission.id)
+
+        # Trigger screenshot comparison if enabled
+        if self.validated_data.get('trigger_screenshot_analysis', True):
+            team_project = self.validated_data['team_project']
+            process_screenshot_comparison.delay(team_project.id)
+
+        return submission
+
+    def _create_submission(self):
+        """
+        Creates and returns a new Submission instance for frontend applications.
+        """
+        return Submission.objects.create(
+            project=self.validated_data['project'],
+            task=self.validated_data['task'],
+            team=self.validated_data['team'],
+            user=self.user,
+            deployment_url=self.validated_data['deployment_url'],
+            github_url=self.validated_data.get('github_url'),
+            status=PENDING
+        )
+
+    def _update_team_project_deployment_url(self):
+        """
+        Updates the team project's deployment URL if one was provided in the submission.
+        """
+        if self.validated_data.get('deployment_url_provided'):
+            team_project = self.validated_data['team_project']
+            team_project.deployment_url = self.validated_data['deployment_url']
+            team_project.save(update_fields=['deployment_url'])
 
 
 class SubmissionTestRunnerService:
@@ -728,3 +775,151 @@ class ConsoleSubmissionTestRunnerService(BaseSubmissionTestRunnerService):
         }
         return extensions.get(language.lower(), 'txt')
 
+
+
+class FrontendSubmissionTestRunnerService(BaseSubmissionTestRunnerService):
+    """
+    Service responsible for running frontend application tests.
+    This includes API endpoint testing and UI/accessibility checks.
+    """
+    def __init__(self, submission_id: int):
+        super().__init__(submission_id)
+        self.submission = Submission.objects.select_related('task__project').get(pk=self.submission_id)
+        self.base_url = self.submission.deployment_url.rstrip('/')
+        submitted_task = self.submission.task
+        self.project_tasks = submitted_task.project.tasks.filter(order__lte=submitted_task.order).order_by('order')
+
+
+    def _get_test_cases_for_task(self, task):
+        """Fetches test cases for the frontend task."""
+        return TestCase.objects.filter(task=task).order_by('order')
+
+
+    def _run_single_test_case(self, test_case: TestCase):
+        """Executes one test case for frontend applications."""
+        try:
+            if test_case.test_type == TestType.API_REQUEST:
+                return self._run_api_test(test_case)
+            elif test_case.test_type == TestType.UI_CHECK:
+                return self._run_ui_check(test_case)
+            elif test_case.test_type == TestType.ACCESSIBILITY_CHECK:
+                return self._run_accessibility_check(test_case)
+            else:
+                return False, f"Unsupported test type for frontend: {test_case.test_type}"
+
+        except Exception as e:
+            logger.error(f"Error running frontend test case {test_case.id}: {str(e)}", exc_info=True)
+            return False, f"Test execution error: {str(e)}"
+
+
+    def _run_api_test(self, test_case: TestCase):
+        """Runs API endpoint tests for frontend applications."""
+        try:
+            endpoint = test_case.endpoint
+            if not endpoint:
+                return False, "No endpoint specified for API test case"
+
+            # Build the full URL
+            path = endpoint.path
+            if test_case.path_params:
+                for param, value in test_case.path_params.items():
+                    path = path.replace(f"{{{param}}}", str(value))
+
+            url = f"{self.base_url}{path}"
+
+            # Prepare request
+            headers = test_case.request_headers or {}
+            headers.setdefault('Content-Type', 'application/json')
+
+            # Make the request
+            method = endpoint.method.lower()
+            request_kwargs = {
+                'url': url,
+                'headers': headers,
+                'timeout': 30
+            }
+
+            if test_case.request_payload and method in ['post', 'put', 'patch']:
+                request_kwargs['json'] = test_case.request_payload
+
+            response = getattr(requests, method)(**request_kwargs)
+
+            # Check status code
+            if response.status_code != test_case.expected_status_code:
+                return False, f"Expected status {test_case.expected_status_code}, got {response.status_code}"
+
+            # Validate response schema if provided
+            if test_case.expected_response_schema:
+                try:
+                    response_data = response.json()
+                    validate(instance=response_data, schema=test_case.expected_response_schema)
+                except jsonschema.ValidationError as e:
+                    return False, f"Response schema validation failed: {str(e)}"
+                except ValueError:
+                    return False, "Response is not valid JSON"
+
+            return True, "API test passed successfully"
+
+        except requests.RequestException as e:
+            return False, f"Request failed: {str(e)}"
+
+
+    def _run_ui_check(self, test_case: TestCase):
+        """Runs UI checks for frontend applications."""
+        try:
+            # Check if the main page loads
+            response = requests.get(self.base_url, timeout=30)
+
+            if response.status_code != 200:
+                return False, f"UI check failed: Page returned status {response.status_code}"
+
+            # Basic content checks
+            content = response.text.lower()
+
+            # Check if it's a proper HTML page
+            if '<html' not in content or '<body' not in content:
+                return False, "UI check failed: Not a valid HTML page"
+
+            # Check for common frontend framework indicators
+            frameworks = ['react', 'vue', 'angular', 'bootstrap', 'jquery']
+            framework_found = any(framework in content for framework in frameworks)
+
+            if not framework_found:
+                # Check for custom JavaScript
+                if '<script' not in content and 'javascript' not in content:
+                    return False, "UI check failed: No frontend framework or custom JavaScript detected"
+
+            return True, "UI check passed successfully"
+
+        except requests.RequestException as e:
+            return False, f"UI check failed: {str(e)}"
+
+
+    def _run_accessibility_check(self, test_case: TestCase):
+        """Runs basic accessibility checks for frontend applications."""
+        try:
+            response = requests.get(self.base_url, timeout=30)
+
+            if response.status_code != 200:
+                return False, f"Accessibility check failed: Page returned status {response.status_code}"
+
+            content = response.text.lower()
+
+            # Basic accessibility checks
+            checks = {
+                'has_title': '<title>' in content,
+                'has_meta_viewport': 'viewport' in content,
+                'has_alt_attributes': 'alt=' in content or 'alt =' in content,
+                'has_semantic_html': any(
+                    tag in content for tag in ['<header', '<nav', '<main', '<footer', '<section', '<article']),
+            }
+
+            failed_checks = [check for check, passed in checks.items() if not passed]
+
+            if failed_checks:
+                return False, f"Accessibility check failed: Missing {', '.join(failed_checks)}"
+
+            return True, "Accessibility check passed successfully"
+
+        except requests.RequestException as e:
+            return False, f"Accessibility check failed: {str(e)}"
