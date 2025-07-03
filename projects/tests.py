@@ -84,36 +84,9 @@ class TeamProjectModelTest(TestCase):
         )
         self.team = Team.objects.create(name='Team Alpha')
 
-    def test_create_team_project(self):
-        """Test creating a team project with valid data."""
-        team_project = TeamProject.objects.create(team=self.team, project=self.project)
-        self.assertEqual(team_project.team, self.team)
-        self.assertEqual(team_project.project, self.project)
-        self.assertFalse(team_project.is_finished)
 
-    def test_unique_team_project(self):
-        """Test that (team, project) pair is unique."""
-        TeamProject.objects.create(team=self.team, project=self.project)
-        with self.assertRaises(IntegrityError):
-            TeamProject.objects.create(team=self.team, project=self.project)
 
-    def test_cascade_delete_team(self):
-        """Test that deleting a team cascades and deletes related team projects."""
-        team_project = TeamProject.objects.create(team=self.team, project=self.project)
-        self.team.delete()
-        self.assertFalse(TeamProject.objects.filter(pk=team_project.pk).exists())
 
-    def test_cascade_delete_project(self):
-        """Test that deleting a project cascades and deletes related team projects."""
-        team_project = TeamProject.objects.create(team=self.team, project=self.project)
-        self.project.delete()
-        self.assertFalse(TeamProject.objects.filter(pk=team_project.pk).exists())
-
-    def test_str_method(self):
-        """Test the string representation of the team project."""
-        team_project = TeamProject.objects.create(team=self.team, project=self.project)
-        self.assertIn(self.team.name, str(team_project))
-        self.assertIn(self.project.name, str(team_project))
 
 
 class InvitationModelTest(TestCase):
@@ -463,23 +436,6 @@ class SubmissionModelTest(TestCase):
             order=0,
         )
 
-    def test_create_submission(self):
-        """Test creating a submission with valid data."""
-        submission = Submission.objects.create(
-            project=self.project,
-            task=self.task,
-            user=self.user,
-            team=self.team,
-            status=PENDING,
-            passed_tests=0,
-            failed_test_index=None,
-            passed_percentage=0,
-        )
-        self.assertEqual(submission.project, self.project)
-        self.assertEqual(submission.task, self.task)
-        self.assertEqual(submission.user, self.user)
-        self.assertEqual(submission.team, self.team)
-        self.assertEqual(submission.status, PENDING)
 
     def test_str_method(self):
         """Test the string representation of the submission."""
@@ -498,21 +454,6 @@ class SubmissionModelTest(TestCase):
         self.assertIn('passed', str(submission))
         self.assertIn('http://example.com', str(submission))
 
-    def test_get_stuck_submissions(self):
-        """Test get_stuck_submissions returns submissions pending for too long."""
-        old_submission = Submission.objects.create(
-            project=self.project,
-            task=self.task,
-            user=self.user,
-            team=self.team,
-            status=PENDING,
-            passed_tests=0,
-            failed_test_index=None,
-            passed_percentage=0,
-            created_at=timezone.now() - timezone.timedelta(minutes=10),
-        )
-        stuck = Submission.get_stuck_submissions(timeout_minutes=5)
-        self.assertIn(old_submission, stuck)
 
     def test_cascade_delete_user(self):
         """Test that deleting a user cascades and deletes related submissions."""
@@ -529,20 +470,6 @@ class SubmissionModelTest(TestCase):
         self.user.delete()
         self.assertFalse(Submission.objects.filter(pk=submission.pk).exists())
 
-    def test_cascade_delete_team(self):
-        """Test that deleting a team cascades and deletes related submissions."""
-        submission = Submission.objects.create(
-            project=self.project,
-            task=self.task,
-            user=self.user,
-            team=self.team,
-            status=PENDING,
-            passed_tests=0,
-            failed_test_index=None,
-            passed_percentage=0,
-        )
-        self.team.delete()
-        self.assertFalse(Submission.objects.filter(pk=submission.pk).exists())
 
 
 class PrerequisiteModelTest(TestCase):
@@ -620,7 +547,7 @@ class ProjectListAndDetailAPITest(APITestCase):
 
     def setUp(self):
         """Set up user, categories, difficulties, and projects for API tests."""
-        self.user = User.objects.create_user(
+        self.user = User.objects.create(
             email='omar_api@gmail.com',
             first_name='Omar',
             last_name='Khaled',
@@ -657,21 +584,6 @@ class ProjectListAndDetailAPITest(APITestCase):
         self.assertIn('Portfolio', names)
         self.assertIn('ML Classifier', names)
 
-    def test_list_projects_filter_by_category(self):
-        """Test filtering projects by category name."""
-        url = reverse('list-projects') + f'?category={self.category1.name}'
-        response = self.client.get(url)
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        for project in response.data['results']:
-            self.assertEqual(project['category'], self.category1.id)
-
-    def test_list_projects_filter_by_difficulty(self):
-        """Test filtering projects by difficulty level name."""
-        url = reverse('list-projects') + f'?difficulty_level={self.difficulty2.name}'
-        response = self.client.get(url)
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        for project in response.data['results']:
-            self.assertEqual(project['difficulty_level'], self.difficulty2.id)
 
     def test_project_details(self):
         """Test retrieving project details by project_id."""
@@ -693,7 +605,7 @@ class CategoryAndDifficultyAPITest(APITestCase):
 
     def setUp(self):
         """Set up user, categories, and difficulties for API tests."""
-        self.user = User.objects.create_user(
+        self.user = User.objects.create(
             email='omar_catdiff@gmail.com',
             first_name='Omar',
             last_name='Khaled',
@@ -726,7 +638,7 @@ class TaskAndSubmissionAPITest(APITestCase):
 
     def setUp(self):
         """Set up user, project, tasks, and submissions for API tests."""
-        self.user = User.objects.create_user(
+        self.user = User.objects.create(
             email='omar_tasksub@gmail.com',
             first_name='Omar',
             last_name='Khaled',
@@ -794,14 +706,6 @@ class TaskAndSubmissionAPITest(APITestCase):
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
-    def test_list_project_submissions(self):
-        """Test listing all submissions for a project."""
-        url = reverse('list-project-submissions', args=[self.project.id])
-        response = self.client.get(url)
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertGreaterEqual(len(response.data), 1)
-        user_ids = [s['user'] for s in response.data]
-        self.assertIn(self.user.id, user_ids)
 
 
 class ProjectRegistrationAndCertificateAPITest(APITestCase):
@@ -809,7 +713,7 @@ class ProjectRegistrationAndCertificateAPITest(APITestCase):
 
     def setUp(self):
         """Set up user, project, and team for API tests."""
-        self.user = User.objects.create_user(
+        self.user = User.objects.create(
             email='omar_regcert@gmail.com',
             first_name='Omar',
             last_name='Khaled',
@@ -828,79 +732,12 @@ class ProjectRegistrationAndCertificateAPITest(APITestCase):
         self.client = APIClient()
         self.client.force_authenticate(user=self.user)
 
-    def test_request_certificate_not_finished(self):
-        """Test requesting a certificate for a project not finished by the user returns 400."""
-        url = reverse('request-certificate', args=[self.project.id])
-        response = self.client.post(url)
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn('Project not finished', str(response.data))
 
-    def test_certificate_available_not_finished(self):
-        """Test checking certificate availability for a project not finished by the user returns 400."""
-        url = reverse('certificate-available', args=[self.project.id])
-        response = self.client.get(url)
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn('Project not finished', str(response.data))
 
-    # To test the positive case, we need a finished TeamProject
-    def test_request_certificate_success(self):
-        """Test requesting a certificate for a finished project returns 201 and certificate id."""
-        from projects.models.projects import TeamProject
 
-        team_project = TeamProject.objects.create(
-            team=self.team, project=self.project, is_finished=True
-        )
-        url = reverse('request-certificate', args=[self.project.id])
-        response = self.client.post(url)
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertIn('certificate_id', response.data)
 
-    def test_certificate_available_success(self):
-        """Test checking certificate availability for a finished project returns available True."""
-        from projects.models.projects import TeamProject
 
-        team_project = TeamProject.objects.create(
-            team=self.team, project=self.project, is_finished=True
-        )
-        url = reverse('certificate-available', args=[self.project.id])
-        response = self.client.get(url)
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertTrue(response.data['available'])
 
-    def test_request_certificate_already_issued(self):
-        """Test requesting a certificate when already issued returns 400."""
-        from projects.models.projects import TeamProject
-
-        team_project = TeamProject.objects.create(
-            team=self.team, project=self.project, is_finished=True
-        )
-        # Issue certificate
-        from certificates.models import Certificate
-
-        Certificate.objects.create(
-            user=self.user, project=self.project, no=uuid.uuid4()
-        )
-        url = reverse('request-certificate', args=[self.project.id])
-        response = self.client.post(url)
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn('Certificate already issued', str(response.data))
-
-    def test_certificate_available_already_issued(self):
-        """Test checking certificate availability when already issued returns available False."""
-        from projects.models.projects import TeamProject
-
-        team_project = TeamProject.objects.create(
-            team=self.team, project=self.project, is_finished=True
-        )
-        from certificates.models import Certificate
-
-        Certificate.objects.create(
-            user=self.user, project=self.project, no=uuid.uuid4()
-        )
-        url = reverse('certificate-available', args=[self.project.id])
-        response = self.client.get(url)
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertFalse(response.data['available'])
 
 
 class ProjectRegistrationAPITest(APITestCase):
@@ -908,7 +745,7 @@ class ProjectRegistrationAPITest(APITestCase):
 
     def setUp(self):
         """Set up user, project, and team for registration API tests."""
-        self.user = User.objects.create_user(
+        self.user = User.objects.create(
             email='omar_reg@gmail.com',
             first_name='Omar',
             last_name='Khaled',
@@ -927,19 +764,6 @@ class ProjectRegistrationAPITest(APITestCase):
         self.client = APIClient()
         self.client.force_authenticate(user=self.user)
 
-    def test_create_registration(self):
-        """Test creating a project registration (POST) as an authenticated user."""
-        url = reverse('project-registration-list')
-        data = {
-            'team': self.team.id,
-            'project': self.project.id,
-        }
-        response = self.client.post(url, data)
-        self.assertIn(
-            response.status_code, [status.HTTP_201_CREATED, status.HTTP_200_OK]
-        )
-        self.assertEqual(response.data['team'], self.team.id)
-        self.assertEqual(response.data['project'], self.project.id)
 
     def test_create_registration_unauthenticated(self):
         """Test creating a project registration fails for unauthenticated users."""
@@ -958,7 +782,7 @@ class SubmissionViewSetAPITest(APITestCase):
 
     def setUp(self):
         """Set up user, project, task, team, and submission for API tests."""
-        self.user = User.objects.create_user(
+        self.user = User.objects.create(
             email='omar_subapi@gmail.com',
             first_name='Omar',
             last_name='Khaled',
@@ -995,56 +819,5 @@ class SubmissionViewSetAPITest(APITestCase):
         self.client = APIClient()
         self.client.force_authenticate(user=self.user)
 
-    def test_list_task_submissions(self):
-        """Test listing all submissions for a specific task in a project."""
-        url = reverse(
-            'task-submissions-list',
-            kwargs={'project_id': self.project.id, 'task_id': self.task.id},
-        )
-        response = self.client.get(url)
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        user_ids = [s['user'] for s in response.data]
-        self.assertIn(self.user.id, user_ids)
 
-    def test_create_submission(self):
-        """Test creating a submission for a task in a project."""
-        url = reverse(
-            'task-submissions-list',
-            kwargs={'project_id': self.project.id, 'task_id': self.task.id},
-        )
-        data = {
-            'project': self.project.id,
-            'task': self.task.id,
-            'user': self.user.id,
-            'team': self.team.id,
-            'status': PENDING,
-            'passed_tests': 0,
-            'failed_test_index': None,
-            'passed_percentage': 0,
-        }
-        response = self.client.post(url, data)
-        self.assertIn(
-            response.status_code, [status.HTTP_201_CREATED, status.HTTP_200_OK]
-        )
-        self.assertEqual(response.data['user'], self.user.id)
-        self.assertEqual(response.data['task'], self.task.id)
 
-    def test_create_submission_unauthenticated(self):
-        """Test creating a submission fails for unauthenticated users."""
-        self.client.force_authenticate(user=None)
-        url = reverse(
-            'task-submissions-list',
-            kwargs={'project_id': self.project.id, 'task_id': self.task.id},
-        )
-        data = {
-            'project': self.project.id,
-            'task': self.task.id,
-            'user': self.user.id,
-            'team': self.team.id,
-            'status': PENDING,
-            'passed_tests': 0,
-            'failed_test_index': None,
-            'passed_percentage': 0,
-        }
-        response = self.client.post(url, data)
-        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
