@@ -14,11 +14,7 @@ import uuid
 
 from certificates.models import Certificate
 from projects.models.projects import Project, TeamProject
-from projects.serializers import (
-    ProjectSeedSerializer,
-    ProjectSerializer,
-    ProjectDetailsSerializer,
-)
+from projects.serializers import ProjectSeedSerializer, ProjectSerializer, ProjectDetailsSerializer
 from projects.services import ProjectSeederService, ProjectCreationError
 from utils.logging_utils import get_logger
 
@@ -37,12 +33,11 @@ class ProjectsListView(ListAPIView):
         difficulty_level = self.request.query_params.get('difficulty_level')
 
         if category:
-            queryset = queryset.filter(category__name=category)
+            queryset = queryset.filter(category=category)
         if difficulty_level:
-            queryset = queryset.filter(difficulty_level__name=difficulty_level)
+            queryset = queryset.filter(difficulty_level=difficulty_level)
 
         return queryset
-
 
 class ProjectDetailsView(RetrieveAPIView):
     lookup_url_kwarg = 'project_id'
@@ -55,28 +50,35 @@ class ProjectDetailsView(RetrieveAPIView):
 @permission_classes([IsAuthenticated])
 def request_certificate(request, project_id):
     project = get_object_or_404(Project, id=project_id)
-    user_project = TeamProject.objects.filter(
-        user=request.user, project=project, is_finished=True
+
+    # Check if user is in any team that has finished this project
+    team_project = TeamProject.objects.filter(
+        team__members=request.user,  # User is a member of the team
+        project=project,  # Team is working on this project
+        is_finished=True  # Team has finished the project
     ).first()
-    if not user_project:
+
+    if not team_project:
         return Response(
-            {"detail": "Project not finished by user."},
-            status=status.HTTP_400_BAD_REQUEST,
+            {"detail": "No team you're a member of has finished this project."},
+            status=status.HTTP_400_BAD_REQUEST
         )
+
     if Certificate.objects.filter(user=request.user, project=project).exists():
         return Response(
             {"detail": "Certificate already issued."},
-            status=status.HTTP_400_BAD_REQUEST,
+            status=status.HTTP_400_BAD_REQUEST
         )
+
     cert = Certificate.objects.create(
-        user=request.user, project=project, no=uuid.uuid4()
+        user=request.user,
+        project=project,
+        no=uuid.uuid4()
     )
+
     return Response(
-        {
-            "detail": "Certificate requested successfully.",
-            "certificate_id": str(cert.no),
-        },
-        status=status.HTTP_201_CREATED,
+        {"detail": "Certificate requested successfully.", "certificate_id": str(cert.no)},
+        status=status.HTTP_201_CREATED
     )
 
 
@@ -84,25 +86,31 @@ def request_certificate(request, project_id):
 @permission_classes([IsAuthenticated])
 def certificate_available(request, project_id):
     project = get_object_or_404(Project, id=project_id)
-    user_project = TeamProject.objects.filter(
-        user=request.user, project=project, is_finished=True
+
+    # Check if user is in any team that has finished this project
+    team_project = TeamProject.objects.filter(
+        team__members=request.user,  # User is a member of the team
+        project=project,  # Team is working on this project
+        is_finished=True  # Team has finished the project
     ).first()
-    if not user_project:
+
+    if not team_project:
         return Response(
-            {"available": False, "detail": "Project not finished by user."},
-            status=status.HTTP_400_BAD_REQUEST,
+            {"available": False, "detail": "No team you're a member of has finished this project."},
+            status=status.HTTP_400_BAD_REQUEST
         )
-    certificate = Certificate.objects.filter(
-        user=request.user, project=project
-    ).exists()
+
+    # Check if certificate already exists
+    certificate = Certificate.objects.filter(user=request.user, project=project).exists()
     if certificate:
         return Response(
-            {"available": False, "detail": "Certificate already issued."},
-            status=status.HTTP_200_OK,
+            {"available": False, "detail": "Certificate already issued for that project."},
+            status=status.HTTP_200_OK
         )
+
     return Response(
         {"available": True, "detail": "Certificate is available to be requested."},
-        status=status.HTTP_200_OK,
+        status=status.HTTP_200_OK
     )
 
 
@@ -110,9 +118,7 @@ class ProjectSeedUploadView(APIView):
     permission_classes = [IsAdmin]
 
     def post(self, request, *args, **kwargs):
-        logger.info(
-            f"Received project seed upload request from user id: {request.user.id}, user name: {request.user.first_name} {request.user.last_name}"
-        )
+        logger.info(f"Received project seed upload request from user id: {request.user.id}, user name: {request.user.first_name} {request.user.last_name}")
         logger.debug(f"Request data: {request.data}")
         serializer = ProjectSeedSerializer(data=request.data)
         try:
@@ -128,20 +134,15 @@ class ProjectSeedUploadView(APIView):
             logger.error(f"Project creation error during project seed upload: {e}")
             return Response({'error': str(e)}, status=e.status_code)
         except Exception as e:
-            logger.critical(
-                f"Unexpected error during project seed upload: {e}", exc_info=True
-            )
+            logger.critical(f"Unexpected error during project seed upload: {e}", exc_info=True)
             # Catch unexpected errors
-            return Response(
-                {'error': f'An unexpected error occurred: {str(e)}'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
+            return Response({'error': f'An unexpected error occurred: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
         # On success, return a representation of the created project's main details
         response_data = {
             'id': project.id,
             'name': project.name,
             'slug': project.slug,
-            'message': 'Project created successfully.',
+            'message': 'Project created successfully.'
         }
         return Response(response_data, status=status.HTTP_201_CREATED)
