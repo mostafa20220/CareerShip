@@ -1,13 +1,17 @@
 from django.contrib import admin
-from .models import Team, Invitation
+from .models import Team ,  Invitation
+
+
+
 
 @admin.register(Team)
 class TeamAdmin(admin.ModelAdmin):
     list_display = ('name', 'owner', 'created_at')
     list_filter = ('created_at',)
-    search_fields = ('name', 'owner__first_name')
+    search_fields = ('name', 'owner__email')
     ordering = ('-created_at',)
     date_hierarchy = 'created_at'
+
 
 
 @admin.register(Invitation)
