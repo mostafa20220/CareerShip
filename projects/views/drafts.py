@@ -4,14 +4,14 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 
 from projects.models.drafts import ProjectDraft
-from projects.serializers import ProjectDraftSerializer
+from projects.serializers import ProjectDraftCreateSerializer, ProjectDraftListSerializer, ProjectDraftRefineSerializer, ProjectDraftUpdateSerializer, ProjectDraftDetailsSerializer, ProjectDraftFinalizeSerializer
 from projects.services.gemini_service import GeminiService
 from projects.services.project_seed_service import ProjectCreationError, ProjectSeederService
 
 
 class ProjectDraftViewSet(viewsets.ModelViewSet):
     queryset = ProjectDraft.objects.all()
-    serializer_class = ProjectDraftSerializer
+    serializer_class = ProjectDraftCreateSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
@@ -20,6 +20,22 @@ class ProjectDraftViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
 
+    def get_serializer_class(self):
+    # we make a dictionary to map actions to serializers
+    # we have creat, details, list, update, refine, generate serializers
+        serializers_map = {
+            'create': ProjectDraftCreateSerializer,
+            'retrieve': ProjectDraftDetailsSerializer,
+            'list': ProjectDraftListSerializer,
+            'update': ProjectDraftUpdateSerializer,
+            'partial_update': ProjectDraftUpdateSerializer,
+            'refine': ProjectDraftRefineSerializer,
+            'generate': ProjectDraftFinalizeSerializer,
+        }
+
+        return serializers_map.get(self.action, self.serializer_class)
+
+
     @action(detail=True, methods=['post'])
     def refine(self, request, pk=None):
         draft = self.get_object()
@@ -27,31 +43,18 @@ class ProjectDraftViewSet(viewsets.ModelViewSet):
         if not prompt:
             return Response({"error": "Prompt is required."}, status=status.HTTP_400_BAD_REQUEST)
 
-        gemini_service = GeminiService()
-        # Assuming the service can take conversation history for refinement
-        # For now, we just send the new prompt
-        refined_project = gemini_service.generate_project(prompt)
+        # leave the logic for the serializer to handle the prompt and draft
+        serializer = self.get_serializer(draft, data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
-        draft.generated_project = refined_project
-        draft.save()
-
-        serializer = self.get_serializer(draft)
-        return Response(serializer.data)
 
     @action(detail=True, methods=['post'])
-    def create(self, request, pk=None):
+    def generate(self, request, pk=None):
         draft = self.get_object()
-        try:
-            service = ProjectSeederService(draft.generated_project)
-            project = service.create_project()
-        except ProjectCreationError as e:
-            return Response({'error': str(e)}, status=e.status_code)
-
-        response_data = {
-            'id': project.id,
-            'name': project.name,
-            'slug': project.slug,
-            'message': 'Project created successfully.',
-        }
-        return Response(response_data, status=status.HTTP_201_CREATED)
+        serializer = self.get_serializer(draft, data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_200_OK)
 

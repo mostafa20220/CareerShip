@@ -9,7 +9,7 @@ from CareerShip.settings import BASE_DIR
 from projects.models import Project
 from projects.models.drafts import ProjectDraft, DraftStatus
 from projects.services.gemini_service import GeminiService
-from projects.services.project_generator import ProjectGenerator
+from projects.services.project_generator import AIPoweredProjectGenerator
 
 # Set up logger
 logger = get_logger(__name__)
@@ -29,7 +29,7 @@ def generate_project_draft_task(self, draft_id: int):
 
     try:
         # Instantiate the generator service with the draft
-        generator = ProjectGenerator(draft=draft)
+        generator = AIPoweredProjectGenerator(draft=draft)
         # Run the generation process (which updates the draft instance in memory)
         generator.generate()
         # Save the updated draft to the database

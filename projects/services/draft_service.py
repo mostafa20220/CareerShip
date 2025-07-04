@@ -8,7 +8,7 @@ class DraftService:
     def __init__(self, user):
         self.user = user
 
-    def create_draft(self, prompt: str, category_id: int, is_public: bool, difficulty_level_id: int = None) -> ProjectDraft:
+    def create_draft(self, prompt: str, category_id: int, is_public: bool, difficulty_level_id: int = None, name: str = None) -> ProjectDraft:
         """
         Creates a new project draft and triggers the initial generation task.
         """
@@ -20,9 +20,11 @@ class DraftService:
             user=self.user,
             category_id=category_id,
             difficulty_level_id=difficulty_level_id,
+            name=name,
             is_public=is_public,
             conversation_history=initial_conversation,
             status=DraftStatus.GENERATING
+
         )
 
         # Trigger the asynchronous task to generate the project content.
@@ -49,7 +51,7 @@ class DraftService:
 
         return draft
 
-    def finalize_project_from_draft(self, draft_id: int):
+    def finalize_project_from_draft(self, draft_id: int, is_public: bool = True) -> ProjectDraft:
         """
         Uses the latest generated JSON from a draft to create a permanent project.
         """
@@ -66,7 +68,7 @@ class DraftService:
 
         try:
             # Pass the is_public flag and user from the draft to the seeder service
-            seeder_service = ProjectSeederService(draft.latest_project_json, draft.is_public, draft.user)
+            seeder_service = ProjectSeederService(draft.latest_project_json, is_public or draft.is_public, draft.user)
             project = seeder_service.create_project()
 
             # Mark the draft as completed.

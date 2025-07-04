@@ -5,7 +5,7 @@ from projects.models.drafts import ProjectDraft, DraftStatus
 from .gemini_service import GeminiService
 
 
-class ProjectGenerator:
+class AIPoweredProjectGenerator:
     """
     Encapsulates the logic for generating a project draft using an AI service.
     """
@@ -16,14 +16,20 @@ class ProjectGenerator:
 
     def generate(self):
         """
-        Generates the project content by building a prompt, calling the AI,
-        and updating the draft instance.
+        Generates the project content by building a system prompt and passing it
+        along with the conversation history to the AI service.
         """
+        # 1. Build the system prompt that contains all the rules and context.
         system_prompt = self._build_system_prompt()
-        full_conversation = [{"role": "system", "parts": [system_prompt]}] + self.draft.conversation_history
 
-        generated_json = self.gemini_service.generate_project_from_conversation(full_conversation)
+        # 2. Generate the project using the conversation history and the system prompt.
+        # The gemini_service is stateless and initialized in __init__.
+        generated_json = self.gemini_service.generate_project_from_conversation(
+            conversation_history=self.draft.conversation_history,
+            system_instruction=system_prompt
+        )
 
+        # 3. Update the draft instance with the new JSON.
         self._update_draft_instance(generated_json)
 
     def _update_draft_instance(self, generated_json: dict):

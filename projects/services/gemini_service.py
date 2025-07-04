@@ -1,68 +1,49 @@
 import json
 import google.generativeai as genai
 from django.conf import settings
+from enum import Enum
 
 from utils.logging_utils import get_logger
 
 logger = get_logger(__name__)
 
+class AI_MODELS(Enum):
+    MODEL_2_5_FLASH = "gemini-2.5-flash"
+    MODEL_2_5_PRO = "gemini-2.5-pro"
+
 
 class GeminiService:
     def __init__(self):
         """
-        Initialize the Gemini service with API key and model configuration.
+        Initializes the Gemini Service, configuring the API key.
+        This service is stateless and can be used for various generation tasks.
         """
-        # Configure the API key
+        self.model = None
         genai.configure(api_key=settings.GEMINI_API_KEY)
 
-        # Set up generation configuration
-        generation_config = genai.GenerationConfig(
-            temperature=0.9,
-            top_p=1,
-            top_k=1,
-            max_output_tokens=8192,
-            response_mime_type="application/json",
-        )
+    def generate_project_from_conversation(self, conversation_history: list, system_instruction: str):
+        """
+        Generates project JSON from a conversation history, guided by a system instruction.
+        """
+        generation_config = {
+            "temperature": 0.9,
+            "top_p": 1,
+            "top_k": 1,
+            "max_output_tokens": 8192,
+            "response_mime_type": "application/json",
+        }
 
-        # Initialize the model
         self.model = genai.GenerativeModel(
-            model_name="gemini-2.5-flash",
-            generation_config=generation_config
+            model_name=AI_MODELS.MODEL_2_5_FLASH.value,
+            generation_config=generation_config,
+            system_instruction=system_instruction  # Pass system instruction here
         )
 
-    def generate_project_from_conversation(self, conversation_history):
-        """
-        Generate project JSON from conversation history.
+        response = self.model.generate_content(conversation_history)
 
-        Args:
-            conversation_history: List of message dictionaries with 'role' and 'parts' keys
-
-        Returns:
-            dict: Parsed JSON response from Gemini
-
-        Raises:
-            ValueError: If the response cannot be parsed as JSON
-        """
         try:
-            # Convert conversation history to the format expected by Gemini
-            formatted_messages = []
-            for message in conversation_history:
-                formatted_messages.append({
-                    "role": message["role"],
-                    "parts": [{"text": part} for part in message["parts"]]
-                })
-
-            # Generate content using the conversation
-            response = self.model.generate_content(formatted_messages)
-
-            # Parse the JSON response
             return json.loads(response.text)
-
-        except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse JSON response from Gemini: {e}")
-            logger.error(f"Raw response: {response.text}")
-            raise ValueError("AI response was not valid JSON")
-
-        except Exception as e:
-            logger.error(f"Error generating content with Gemini: {e}")
-            raise ValueError(f"Failed to generate project: {str(e)}")
+        except (json.JSONDecodeError, TypeError) as e:
+            logger.error(f"Error decoding Gemini response: {e}")
+            logger.error(f"Raw response text: {response.text}")
+            raise ValueError("Failed to generate a valid project structure from the AI.")
