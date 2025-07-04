@@ -46,6 +46,60 @@ class TeamProjectAdmin(admin.ModelAdmin):
     search_fields = ("team__name", "project__name")
 
 
+# --- Frontend Reference Images Admin ---
+
+@admin.register(TaskReferenceImage)
+class TaskReferenceImageAdmin(admin.ModelAdmin):
+    list_display = ("task", "device_type", "viewport_width", "viewport_height", "created_at")
+    list_filter = ("task__project__name", "viewport_width", "viewport_height")
+    search_fields = ("task__name", "description")
+    readonly_fields = ("created_at", "device_type")
+    
+    fieldsets = (
+        (None, {
+            'fields': ('task', 'description', 'image')
+        }),
+        ('Viewport Settings', {
+            'fields': ('viewport_width', 'viewport_height', 'device_type'),
+            'description': 'Screenshot viewport dimensions for comparison'
+        }),
+        ('Metadata', {
+            'fields': ('created_at',),
+            'classes': ('collapse',)
+        })
+    )
+
+
+@admin.register(ScreenshotComparison)
+class ScreenshotComparisonAdmin(admin.ModelAdmin):
+    list_display = ("team_project", "reference_image", "similarity_score", "status", "created_at")
+    list_filter = ("status", "created_at", "team_project__project__name")
+    search_fields = ("team_project__team__name", "feedback_text")
+    readonly_fields = ("created_at", "similarity_score", "feedback_text", "screenshot")
+
+    fieldsets = (
+        (None, {
+            'fields': ('team_project', 'reference_image', 'status')
+        }),
+        ('Comparison Results', {
+            'fields': ('similarity_score', 'feedback_text'),
+            'classes': ('collapse',)
+        }),
+        ('Images', {
+            'fields': ('screenshot',),
+            'classes': ('collapse',)
+        }),
+        ('Metadata', {
+            'fields': ('created_at',),
+            'classes': ('collapse',)
+        })
+    )
+
+    def has_add_permission(self, request):
+        # Prevent manual creation of screenshot comparisons
+        return False
+
+
 # --- Inlines for Declarative Test Cases ---
 
 class ApiTestCaseInline(admin.StackedInline):
@@ -55,6 +109,14 @@ class ApiTestCaseInline(admin.StackedInline):
     formfield_overrides = JSON_TEXTAREA_OVERRIDE
     # You can specify the field order if you like
     fields = ('endpoint', 'expected_status_code', 'request_payload', 'request_headers', 'expected_response_schema')
+
+
+class ReferenceImageInline(admin.TabularInline):
+    model = TaskReferenceImage
+    extra = 1
+    fields = ('image', 'viewport_width', 'viewport_height', 'description')
+    readonly_fields = ('device_type',)
+    show_change_link = True
 
 
 @admin.register(TestCase)
@@ -123,8 +185,18 @@ class TaskAdmin(admin.ModelAdmin):
     list_display = ("name", "order","project", "difficulty_level", "duration_in_days")
     list_filter = ("project__name", "difficulty_level")
     search_fields = ("name", "slug")
-    inlines = [EndpointInline, TestCaseInlineForTask]
+    inlines = [EndpointInline, TestCaseInlineForTask, ReferenceImageInline]
     prepopulated_fields = {'slug': ('name',)}
+    
+    def get_inlines(self, request, obj):
+        """Show ReferenceImageInline only for frontend projects"""
+        inlines = [EndpointInline, TestCaseInlineForTask]
+        
+        # Show reference images for frontend projects or all projects (you can adjust this logic)
+        if obj and obj.project.category.name.lower() in ['frontend', 'web', 'ui', 'react', 'vue', 'angular']:
+            inlines.append(ReferenceImageInline)
+            
+        return inlines
 
 
 # --- Submission Admin (Updated for better JSON editing) ---
@@ -136,53 +208,21 @@ class SubmissionAdmin(admin.ModelAdmin):
     search_fields = ("user__username", "task__name")
     readonly_fields = ('created_at', 'completed_at')
     formfield_overrides = JSON_TEXTAREA_OVERRIDE
-
+    
     fieldsets = (
         (None, {
-            'fields': ('task', 'name', 'description', 'image')
+            'fields': ('project', 'task', 'team', 'user', 'status')
         }),
-        ('Viewport Settings', {
-            'fields': ('viewport_width', 'viewport_height'),
-            'description': 'Screenshot viewport dimensions for comparison'
+        ('URLs & Code', {
+            'fields': ('deployment_url', 'github_url', 'language', 'code'),
+            'classes': ('collapse',)
         }),
-        ('Metadata', {
-            'fields': ('created_at',),
+        ('Results', {
+            'fields': ('passed_tests', 'passed_percentage', 'execution_logs', 'feedback'),
+            'classes': ('collapse',)
+        }),
+        ('Timestamps', {
+            'fields': ('created_at', 'completed_at'),
             'classes': ('collapse',)
         })
     )
-
-
-@admin.register(ScreenshotComparison)
-class ScreenshotComparisonAdmin(admin.ModelAdmin):
-    list_display = ("team_project", "reference_image", "similarity_score", "status", "created_at")
-    list_filter = ("status", "created_at", "team_project__project__name")
-    search_fields = ("team_project__team__name", "reference_image__name", "feedback_text")
-    readonly_fields = ("created_at", "similarity_score", "feedback_text", "screenshot")
-
-    fieldsets = (
-        (None, {
-            'fields': ('team_project', 'reference_image', 'status')
-        }),
-        ('Comparison Results', {
-            'fields': ('similarity_score', 'feedback_text'),
-            'classes': ('collapse',)
-        }),
-        ('Images', {
-            'fields': ('screenshot',),
-            'classes': ('collapse',)
-        }),
-        ('Metadata', {
-            'fields': ('created_at',),
-            'classes': ('collapse',)
-        })
-    )
-
-    def has_add_permission(self, request):
-        # Prevent manual creation of screenshot comparisons
-        return False
-
-class ReferenceImageInline(admin.TabularInline):
-    model = TaskReferenceImage
-    extra = 1
-    fields = ('name', 'image', 'viewport_width', 'viewport_height')
-    show_change_link = True

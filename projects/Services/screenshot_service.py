@@ -1,226 +1,255 @@
-# projects/services/screenshot_service.py
-
 import asyncio
+import traceback
+import uuid
+import os
+
 from playwright.async_api import async_playwright
 from PIL import Image, ImageChops, ImageStat
 import numpy as np
-from skimage.metrics import structural_similarity as ssim
+import requests
+import json
+import base64
 import io
+
+# Try to import SSIM, fall back gracefully if not available
+try:
+    from skimage.metrics import structural_similarity as ssim
+
+    HAS_SSIM = True
+except ImportError:
+    HAS_SSIM = False
+
+import logging
+from django.conf import settings
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 class ScreenshotService:
+    @staticmethod
+    async def capture_screenshot(
+            url: str,
+            width: int = 1920,
+            height: int = 1080,
+            timeout: int = 60000
+    ) -> bytes:
+        """
+        Capture screenshot using Playwright (local or remote browser).
+        Returns screenshot bytes.
+        """
+        # Try remote browser first (if configured)
+        try:
+            return await ScreenshotService._capture_remote_browser(url, width, height, timeout)
+        except Exception as e:
+            logger.error(f"Remote browser failed: {str(e)}")
+
+        # Fallback to local Playwright
+        try:
+            return await ScreenshotService._capture_local_playwright(url, width, height, timeout)
+        except Exception as e:
+            logger.error(f"Local Playwright failed: {str(e)}")
+            raise Exception(f"All screenshot methods failed. Last error: {str(e)}")
 
     @staticmethod
-    async def capture_screenshot(url: str, width: int = 1920, height: int = 1080, timeout: int = 30000):
-        """Capture screenshot of a webpage using Playwright"""
+    async def _capture_remote_browser(
+            url: str,
+            width: int,
+            height: int,
+            timeout: int
+    ) -> bytes:
+        """Use remote browser service (browserless/chrome)"""
+        browser_host = os.getenv('BROWSER_HOST', 'browser_service')
+        browser_port = os.getenv('BROWSER_PORT', '3000')
+
+        # Try HTTP API first (more reliable)
         try:
+            browserless_url = f"http://{browser_host}:{browser_port}/screenshot"
+
+            payload = {
+                "url": url,
+                "options": {
+                    "fullPage": True,
+                    "type": "png",
+
+                },
+                "viewport": {
+                    "width": width,
+                    "height": height
+                },
+                "gotoOptions": {
+                    "waitUntil": "networkidle0",
+                    "timeout": timeout
+                }
+            }
+
+            logger.info(f"Sending request to {browserless_url} with payload: {json.dumps(payload, indent=2)}")
+
+            response = requests.post(
+                browserless_url,
+                json=payload,
+                timeout=timeout / 1000 + 10,  # Add extra time for HTTP request
+                headers={'Content-Type': 'application/json'}
+            )
+
+            if response.status_code == 200:
+                logger.info("Successfully captured screenshot via HTTP API")
+                return response.content
+            else:
+                logger.error(f"HTTP API returned status {response.status_code}: {response.text}")
+                raise Exception(f"HTTP API failed with status {response.status_code}")
+
+        except Exception as e:
+            logger.error(f"HTTP API failed: {str(e)}")
+
+        # Try CDP as fallback
+        try:
+            logger.info("Trying CDP connection as fallback")
             async with async_playwright() as p:
-                browser = await p.chromium.launch(headless=True)
+                browser = None
+                try:
+                    # Try to connect via CDP
+                    browser = await p.chromium.connect_over_cdp(f"ws://{browser_host}:9222")
+                    page = await browser.new_page()
+                    await page.set_viewport_size({"width": width, "height": height})
+                    await page.goto(url, timeout=timeout, wait_until='networkidle')
+                    screenshot = await page.screenshot(full_page=True)
+                    logger.info("Successfully captured screenshot via CDP")
+                    return screenshot
+                finally:
+                    if browser:
+                        await browser.close()
+        except Exception as e:
+            logger.error(f"CDP connection failed: {str(e)}")
+            raise
+
+    @staticmethod
+    async def _capture_local_playwright(
+            url: str,
+            width: int = 1920,
+            height: int = 1080,
+            timeout: int = 60000
+    ) -> bytes:
+        """Use local Playwright browser"""
+        logger.info("Attempting local Playwright screenshot")
+        async with async_playwright() as p:
+            browser = None
+            try:
+                browser = await p.chromium.launch(
+                    headless=True,
+                    args=[
+                        '--no-sandbox',
+                        '--disable-dev-shm-usage',
+                        '--disable-gpu',
+                        '--disable-web-security',
+                        '--disable-features=VizDisplayCompositor',
+                        '--disable-background-timer-throttling',
+                        '--disable-backgrounding-occluded-windows',
+                        '--disable-renderer-backgrounding'
+                    ]
+                )
                 page = await browser.new_page()
                 await page.set_viewport_size({"width": width, "height": height})
 
-                # Navigate to the URL with timeout
-                await page.goto(url, timeout=timeout, wait_until='networkidle')
+                # Add user agent to avoid blocking
+                await page.set_extra_http_headers({
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+                })
 
-                # Take screenshot
+                await page.goto(url, timeout=timeout, wait_until='domcontentloaded')
+
+                # Wait a bit more for dynamic content
+                await page.wait_for_timeout(2000)
+
                 screenshot = await page.screenshot(full_page=True)
-                await browser.close()
 
+                # Save to disk temporarily if needed
+                if hasattr(settings, 'MEDIA_ROOT') and settings.MEDIA_ROOT:
+                    screenshot_path = os.path.join(settings.MEDIA_ROOT, f"screenshot_{uuid.uuid4()}.png")
+                    with open(screenshot_path, 'wb') as f:
+                        f.write(screenshot)
+
+                logger.info("Successfully captured screenshot with local Playwright")
                 return screenshot
-
-        except Exception as e:
-            raise Exception(f"Failed to capture screenshot: {str(e)}")
-
-    @staticmethod
-    def compare_images(reference_image_path: str, screenshot_bytes: bytes):
-        """Compare reference image with screenshot using PIL and SSIM"""
-        try:
-            # Load reference image using PIL
-            reference = Image.open(reference_image_path)
-            
-            # Convert screenshot bytes to PIL Image
-            screenshot = Image.open(io.BytesIO(screenshot_bytes))
-
-            # Convert to RGB if needed (handles different formats)
-            if reference.mode != 'RGB':
-                reference = reference.convert('RGB')
-            if screenshot.mode != 'RGB':
-                screenshot = screenshot.convert('RGB')
-
-            # Resize images to same dimensions if needed
-            if reference.size != screenshot.size:
-                # Resize to match the smaller dimension to avoid quality loss
-                target_size = (
-                    min(reference.size[0], screenshot.size[0]),
-                    min(reference.size[1], screenshot.size[1])
-                )
-                reference = reference.resize(target_size, Image.Resampling.LANCZOS)
-                screenshot = screenshot.resize(target_size, Image.Resampling.LANCZOS)
-
-            # Convert PIL images to numpy arrays for SSIM calculation
-            reference_array = np.array(reference)
-            screenshot_array = np.array(screenshot)
-
-            # Convert to grayscale for SSIM comparison
-            reference_gray = np.dot(reference_array[...,:3], [0.2989, 0.5870, 0.1140])
-            screenshot_gray = np.dot(screenshot_array[...,:3], [0.2989, 0.5870, 0.1140])
-
-            # Calculate SSIM
-            similarity_score, diff = ssim(reference_gray, screenshot_gray, full=True)
-
-            # Create difference image using PIL
-            diff_pil = ScreenshotService._create_difference_image_pil(reference, screenshot)
-
-            # Alternative similarity calculation using PIL (if SSIM fails)
-            pil_similarity = ScreenshotService._calculate_pil_similarity(reference, screenshot)
-
-            return {
-                'similarity_score': similarity_score,
-                'pil_similarity': pil_similarity,
-                'difference_image': diff,
-                'difference_image_pil': diff_pil,
-                'reference_processed': reference,
-                'screenshot_processed': screenshot
-            }
-
-        except Exception as e:
-            raise Exception(f"Failed to compare images: {str(e)}")
+            finally:
+                if browser:
+                    await browser.close()
 
     @staticmethod
-    def _create_difference_image_pil(img1: Image.Image, img2: Image.Image) -> Image.Image:
-        """Create a difference image using PIL"""
+    def compare_images(reference_image_path: str, screenshot_bytes: bytes) -> dict:
+        """Compare images using multiple methods"""
         try:
-            # Calculate absolute difference
-            diff = ImageChops.difference(img1, img2)
-            
-            # Enhance the difference for better visibility
-            # Convert to grayscale and then back to RGB for consistent output
-            diff_gray = diff.convert('L')
-            diff_enhanced = ImageChops.multiply(diff_gray, diff_gray.point(lambda x: x * 2))
-            
-            # Convert back to RGB
-            diff_rgb = diff_enhanced.convert('RGB')
-            
-            return diff_rgb
-            
-        except Exception as e:
-            # Return a blank image if difference calculation fails
-            return Image.new('RGB', img1.size, (0, 0, 0))
+            # Load reference image
+            reference_image = Image.open(reference_image_path)
 
-    @staticmethod
-    def _calculate_pil_similarity(img1: Image.Image, img2: Image.Image) -> float:
-        """Calculate similarity using PIL's built-in methods as fallback"""
-        try:
-            # Calculate difference using PIL
-            diff = ImageChops.difference(img1, img2)
-            
-            # Calculate statistics
+            # Load screenshot from bytes
+            screenshot_image = Image.open(io.BytesIO(screenshot_bytes))
+
+            # Ensure both images have the same size
+            if reference_image.size != screenshot_image.size:
+                screenshot_image = screenshot_image.resize(reference_image.size, Image.LANCZOS)
+
+            # Convert to numpy arrays for SSIM if available
+            if HAS_SSIM:
+                ref_array = np.array(reference_image.convert('RGB'))
+                screen_array = np.array(screenshot_image.convert('RGB'))
+
+                # Calculate SSIM
+                similarity_score = ssim(ref_array, screen_array, channel_axis=-1, data_range=255)
+            else:
+                similarity_score = None
+
+            # Calculate histogram similarity
+            ref_hist = reference_image.histogram()
+            screen_hist = screenshot_image.histogram()
+
+            # Calculate correlation coefficient
+            hist_similarity = np.corrcoef(ref_hist, screen_hist)[0, 1]
+
+            # PIL-based comparison (pixel difference)
+            diff = ImageChops.difference(reference_image.convert('RGB'), screenshot_image.convert('RGB'))
             stat = ImageStat.Stat(diff)
-            
-            # Get mean difference across all channels
-            mean_diff = sum(stat.mean) / len(stat.mean)
-            
-            # Convert to similarity score (0-1, where 1 is identical)
-            # 255 is max possible difference per channel
-            similarity = 1 - (mean_diff / 255)
-            
-            return max(0, min(1, similarity))  # Clamp between 0 and 1
-            
-        except Exception:
-            return 0.0
+            pil_similarity = 1 - (sum(stat.mean) / (255 * 3))
 
-    @staticmethod
-    def compare_images_pil_only(reference_image_path: str, screenshot_bytes: bytes):
-        """Compare images using only PIL (no SSIM dependency)"""
-        try:
-            # Load reference image using PIL
-            reference = Image.open(reference_image_path)
-            
-            # Convert screenshot bytes to PIL Image
-            screenshot = Image.open(io.BytesIO(screenshot_bytes))
-
-            # Convert to RGB if needed
-            if reference.mode != 'RGB':
-                reference = reference.convert('RGB')
-            if screenshot.mode != 'RGB':
-                screenshot = screenshot.convert('RGB')
-
-            # Resize images to same dimensions if needed
-            if reference.size != screenshot.size:
-                target_size = (
-                    min(reference.size[0], screenshot.size[0]),
-                    min(reference.size[1], screenshot.size[1])
-                )
-                reference = reference.resize(target_size, Image.Resampling.LANCZOS)
-                screenshot = screenshot.resize(target_size, Image.Resampling.LANCZOS)
-
-            # Calculate similarity using PIL methods
-            similarity_score = ScreenshotService._calculate_pil_similarity(reference, screenshot)
-            
-            # Create difference image
-            diff_image = ScreenshotService._create_difference_image_pil(reference, screenshot)
-
-            # Calculate histogram similarity as additional metric
-            hist_similarity = ScreenshotService._calculate_histogram_similarity(reference, screenshot)
+            logger.info(f"Similarity score: {similarity_score}, Histogram similarity: {hist_similarity}, PIL similarity: {pil_similarity}")
 
             return {
                 'similarity_score': similarity_score,
                 'histogram_similarity': hist_similarity,
-                'difference_image_pil': diff_image,
-                'reference_processed': reference,
-                'screenshot_processed': screenshot
+                'pil_similarity': pil_similarity
             }
 
         except Exception as e:
-            raise Exception(f"Failed to compare images with PIL: {str(e)}")
+            logger.error(f"Error comparing images: {str(e)}")
+            return {'similarity_score': 0, 'histogram_similarity': 0, 'pil_similarity': 0}
 
     @staticmethod
-    def _calculate_histogram_similarity(img1: Image.Image, img2: Image.Image) -> float:
-        """Calculate similarity based on color histograms"""
+    def compare_images_pil_only(reference_image_path: str, screenshot_bytes: bytes) -> dict:
+        """Compare images using PIL only (fallback method)"""
         try:
-            # Get histograms for each channel
-            hist1_r = img1.split()[0].histogram()
-            hist1_g = img1.split()[1].histogram()
-            hist1_b = img1.split()[2].histogram()
-            
-            hist2_r = img2.split()[0].histogram()
-            hist2_g = img2.split()[1].histogram()
-            hist2_b = img2.split()[2].histogram()
-            
-            # Calculate correlation for each channel
-            def correlation(h1, h2):
-                # Normalize histograms
-                h1_norm = [x / sum(h1) for x in h1]
-                h2_norm = [x / sum(h2) for x in h2]
-                
-                # Calculate correlation coefficient
-                mean1 = sum(h1_norm) / len(h1_norm)
-                mean2 = sum(h2_norm) / len(h2_norm)
-                
-                numerator = sum((h1_norm[i] - mean1) * (h2_norm[i] - mean2) for i in range(len(h1_norm)))
-                
-                sum_sq1 = sum((h1_norm[i] - mean1) ** 2 for i in range(len(h1_norm)))
-                sum_sq2 = sum((h2_norm[i] - mean2) ** 2 for i in range(len(h2_norm)))
-                
-                denominator = (sum_sq1 * sum_sq2) ** 0.5
-                
-                if denominator == 0:
-                    return 0
-                
-                return numerator / denominator
-            
-            # Average correlation across channels
-            corr_r = correlation(hist1_r, hist2_r)
-            corr_g = correlation(hist1_g, hist2_g)
-            corr_b = correlation(hist1_b, hist2_b)
-            
-            avg_correlation = (corr_r + corr_g + corr_b) / 3
-            
-            # Convert to similarity score (0-1)
-            return max(0, min(1, (avg_correlation + 1) / 2))
-            
-        except Exception:
-            return 0.0
+            # Load reference image
+            reference_image = Image.open(reference_image_path)
+
+            # Load screenshot from bytes
+            screenshot_image = Image.open(io.BytesIO(screenshot_bytes))
+
+            # Ensure both images have the same size
+            if reference_image.size != screenshot_image.size:
+                screenshot_image = screenshot_image.resize(reference_image.size, Image.LANCZOS)
+
+            # PIL-based comparison (pixel difference)
+            diff = ImageChops.difference(reference_image.convert('RGB'), screenshot_image.convert('RGB'))
+            stat = ImageStat.Stat(diff)
+            pil_similarity = 1 - (sum(stat.mean) / (255 * 3))
+
+            return {
+                'pil_similarity': pil_similarity,
+                'similarity_score': pil_similarity
+            }
+
+        except Exception as e:
+            logger.error(f"Error comparing images with PIL: {str(e)}")
+            return {'pil_similarity': 0, 'similarity_score': 0}
 
 
 class FeedbackService:
@@ -245,24 +274,26 @@ class FeedbackService:
         similarity_score = comparison_result.get('similarity_score', 0)
         hist_similarity = comparison_result.get('histogram_similarity', 0)
         pil_similarity = comparison_result.get('pil_similarity', 0)
-        
+
         # Use the highest similarity score for feedback
         best_score = max(similarity_score, hist_similarity or 0, pil_similarity or 0)
-        
+
         base_feedback = FeedbackService.generate_feedback(best_score)
-        
+
+        print(base_feedback)
+
         # Add specific insights
         insights = []
-        
+
         if hist_similarity and hist_similarity < similarity_score:
             insights.append("The color scheme differs from the expected design.")
         elif hist_similarity and hist_similarity > similarity_score:
             insights.append("The color scheme is accurate, but layout differs.")
-            
+
         if pil_similarity and pil_similarity < 0.7:
             insights.append("There are significant visual differences in the overall appearance.")
-            
+
         if insights:
             return f"{base_feedback}\n\nSpecific insights: {' '.join(insights)}"
-        
+
         return base_feedback

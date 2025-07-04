@@ -35,6 +35,8 @@ class SubmissionViewSet(ModelViewSet):
             from projects.models.projects import Project
             project_id = self.kwargs.get("project_id")
             project = get_object_or_404(Project, pk=project_id)
+            print("category")
+            print(project.category.name)
             if project.category.name == 'Console':
                 return CreateConsoleSubmissionSerializer
             elif project.category.name == 'Frontend':

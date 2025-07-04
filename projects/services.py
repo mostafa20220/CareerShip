@@ -310,6 +310,7 @@ class FrontendSubmissionService:
         Creates a submission based on validated data and triggers both
         regular test runner and screenshot comparison for frontend projects.
         """
+        print("creating submission for frontend project")
         submission = self._create_submission()
         self._update_team_project_deployment_url()
 

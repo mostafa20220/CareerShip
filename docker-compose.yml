@@ -70,6 +70,33 @@ services:
       environment: # ← all are optional; tweak as you need
         - PISTON_MAX_CONCURRENT_JOBS=32
         - PISTON_DISABLE_NETWORKING=true
+
+  browser:
+    image: browserless/chrome:latest
+    container_name: browser_service
+    shm_size: 2g
+    restart: unless-stopped
+    ports:
+      - "3000:3000"  # Fixed port mapping
+      - "9222:9222"  # CDP port
+    environment:
+      - CONCURRENT=10
+      - TOKEN=
+      - TIMEOUT=60000
+      - HEALTH=true
+      - DEBUG=false
+      - ENABLE_CORS=true
+      - CHROME_REFRESH_TIME=2000
+      - DEFAULT_BLOCK_ADS=false
+      - DEFAULT_IGNORE_HTTPS_ERRORS=false
+      - DEFAULT_IGNORE_DEFAULT_ARGS=false
+      - CONNECTION_TIMEOUT=60000
+      - PREBOOT_CHROME=true
+      - KEEP_ALIVE=true
+
+
+
+
 volumes:
     careershipdb:
     piston-packages:           # keeps compiled language packages between restarts

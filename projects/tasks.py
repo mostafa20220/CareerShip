@@ -1,5 +1,5 @@
 # projects/tasks.py
-
+from allauth.socialaccount.views import login_error
 from celery import shared_task
 from django.core.files.base import ContentFile
 
@@ -73,7 +73,6 @@ def process_screenshot_comparison(team_project_id: int, task_id=None):
         if not task:
             logger.error(f"No task found for team project {team_project_id}")
             return
-
         reference_images = task.reference_images.all()
 
         if not reference_images.exists():
