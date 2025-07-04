@@ -1,7 +1,7 @@
 from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.exceptions import ValidationError
 from rest_framework.generics import RetrieveAPIView, ListAPIView
@@ -19,7 +19,7 @@ from projects.serializers import (
     ProjectSerializer,
     ProjectDetailsSerializer,
 )
-from projects.services import ProjectSeederService, ProjectCreationError
+from projects.services.project_seed_service import ProjectCreationError, ProjectSeederService
 from utils.logging_utils import get_logger
 
 logger = get_logger(__name__)
@@ -32,7 +32,7 @@ class ProjectsListView(ListAPIView):
     pagination_class = StandardPagination
 
     def get_queryset(self):
-        queryset = super().get_queryset()
+        queryset = super().get_queryset().filter(is_public=True)
         category = self.request.query_params.get('category')
         difficulty_level = self.request.query_params.get('difficulty_level')
 
@@ -43,6 +43,13 @@ class ProjectsListView(ListAPIView):
 
         return queryset
 
+class UserCreatedProjectsView (ListAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = ProjectSerializer
+    pagination_class = StandardPagination
+
+    def get_queryset(self):
+        return Project.objects.filter(created_by=self.request.user)
 
 class ProjectDetailsView(RetrieveAPIView):
     lookup_url_kwarg = 'project_id'

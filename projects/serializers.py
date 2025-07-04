@@ -5,7 +5,9 @@ from projects.models.projects import Project, TeamProject
 from projects.models.submission import Submission, PASSED
 from projects.models.tasks_endpoints import Task, MethodType, Endpoint
 from teams.models import Team
-from .services import SubmissionService
+from .models import ProjectDraft, DraftStatus
+from .services.submissions_services import SubmissionService
+from .services.draft_service import DraftService
 
 def validate_team(user, value):
     try:
@@ -17,6 +19,149 @@ def validate_team(user, value):
         raise serializers.ValidationError("You are not a member of this team.")
 
     return team
+
+class ProjectDraftCreateSerializer(serializers.ModelSerializer):
+    name = serializers.CharField(max_length=255, required=False, allow_blank=True)
+    prompt = serializers.CharField(write_only=True, min_length=10)
+    category_id = serializers.PrimaryKeyRelatedField(
+        queryset=Category.objects.all(), write_only=True, source='category'
+    )
+    difficulty_level_id = serializers.PrimaryKeyRelatedField(
+        queryset=DifficultyLevel.objects.all(), write_only=True, source='difficulty_level', required=False
+    )
+    is_public = serializers.BooleanField(default=False)
+
+    class Meta:
+        model = ProjectDraft
+        fields = [
+            'id', 'name','status', 'is_public', 'category', 'difficulty_level',
+            'latest_project_json', 'conversation_history', 'created_at',
+            'prompt', 'category_id', 'difficulty_level_id'
+        ]
+        read_only_fields = [
+            'id', 'status', 'category', 'difficulty_level',
+            'latest_project_json', 'conversation_history', 'created_at'
+        ]
+
+    def create(self, validated_data):
+        user = self.context['request'].user
+        draft_service = DraftService(user)
+
+        # The source mapping handles category and difficulty_level assignment
+        # We just need to pass the core data to the service.
+        return draft_service.create_draft(
+            prompt=validated_data['prompt'],
+            category_id=validated_data['category'].id,
+            difficulty_level_id=validated_data.get('difficulty_level').id if validated_data.get('difficulty_level') else None,
+            is_public=validated_data['is_public'],
+            name=validated_data['name'],
+        )
+
+
+# list drafts serializer
+class ProjectDraftListSerializer(serializers.ModelSerializer):
+    category = serializers.StringRelatedField()
+    difficulty_level = serializers.StringRelatedField()
+
+    class Meta:
+        model = ProjectDraft
+        fields = [
+            'id', 'name','status', 'is_public', 'category', 'difficulty_level',
+            'created_at'
+        ]
+        read_only_fields = ['id', 'status', 'category', 'difficulty_level', 'created_at']
+
+# project draft details serializer
+class ProjectDraftDetailsSerializer(serializers.ModelSerializer):
+    category = serializers.StringRelatedField()
+    difficulty_level = serializers.StringRelatedField()
+
+    class Meta:
+        model = ProjectDraft
+        fields = [
+            'id', 'name','status', 'is_public', 'category', 'difficulty_level',
+            'latest_project_json', 'conversation_history', 'created_at'
+        ]
+        read_only_fields = [
+            'id', 'status', 'category', 'difficulty_level',
+            'latest_project_json', 'conversation_history', 'created_at'
+        ]
+
+class ProjectDraftUpdateSerializer(serializers.ModelSerializer):
+    is_public = serializers.BooleanField(default=False)
+    name = serializers.CharField(max_length=255, required=False, allow_blank=True)
+
+    class Meta:
+        model = ProjectDraft
+        fields = ['name', 'is_public']
+        read_only_fields = ['id', 'status', 'category', 'difficulty_level', 'latest_project_json', 'conversation_history', 'created_at']
+
+
+# ceare a serializer for the refine request only
+class ProjectDraftRefineSerializer(serializers.Serializer):
+    prompt = serializers.CharField(min_length=10, required=True, write_only=True)
+
+    class Meta:
+        fields = ['prompt']
+        read_only_fields = ['id','is_public' ,'status', 'category', 'difficulty_level', 'latest_project_json', 'conversation_history', 'created_at']
+
+    def validate_prompt(self, value):
+        if len(value) < 10:
+            raise serializers.ValidationError("Prompt must be at least 10 characters long.")
+        return value
+
+    def validate(self, attrs):
+        # check if it's in a valid state to refine
+        if self.instance.status == DraftStatus.GENERATING:
+            raise serializers.ValidationError("Draft is still being generated. Please wait until it's ready.")
+        if self.instance.status == DraftStatus.COMPLETED:
+            raise serializers.ValidationError("Draft has already been finalized.")
+        if self.instance.status == DraftStatus.ARCHIVED:
+            raise serializers.ValidationError("Draft has been archived and cannot be refined.")
+
+        if not self.instance.latest_project_json:
+            raise serializers.ValidationError("Draft has no generated content to refine.")
+        if self.instance.status != DraftStatus.PENDING_REVIEW:
+            raise serializers.ValidationError("Draft must be in 'PENDING_REVIEW' status to be refined.")
+
+        return attrs
+
+    def update(self, instance, validated_data):
+                user = self.context['request'].user
+                prompt = validated_data['prompt']
+                draft_service = DraftService(user)
+                return draft_service.refine_draft(instance.id, prompt)
+
+# generate project from draft serializer
+class ProjectDraftFinalizeSerializer(serializers.Serializer):
+    is_public = serializers.BooleanField(default=False, required=False)
+
+    class Meta:
+        fields = ['prompt']
+        read_only_fields = ['id','is_public' ,'status', 'category', 'difficulty_level', 'latest_project_json', 'conversation_history', 'created_at']
+
+    def validate(self, attr):
+        # check if it's in a valid state to finalize
+        if self.instance.status == DraftStatus.GENERATING:
+            raise serializers.ValidationError("Draft is still being generated. Please wait until it's ready.")
+        if self.instance.status == DraftStatus.COMPLETED:
+            raise serializers.ValidationError("Draft has already been finalized.")
+        if self.instance.status == DraftStatus.ARCHIVED:
+            raise serializers.ValidationError("Draft has been archived and cannot be finalized.")
+
+        if not self.instance.latest_project_json:
+            raise serializers.ValidationError("Draft has no generated content to finalize.")
+        if self.instance.status != DraftStatus.PENDING_REVIEW:
+            raise serializers.ValidationError("Draft must be in 'PENDING_REVIEW' status to be finalized.")
+
+        return  attr
+
+    def update(self, instance, validated_data):
+        user = self.context['request'].user
+        draft_id = instance.id
+        is_public = validated_data.get('is_public', instance.is_public)
+        draft_service = DraftService(user)
+        return draft_service.finalize_project_from_draft(draft_id, is_public)
 
 class CategorySerializer(serializers.ModelSerializer):
 

@@ -30,7 +30,7 @@ CELERY_BEAT_SCHEDULE = {
     },
 }
 
-
+GEMINI_API_KEY = config('GEMINI_API_KEY')
 
 # Email settings
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
