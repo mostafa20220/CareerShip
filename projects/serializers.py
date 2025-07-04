@@ -54,7 +54,7 @@ class ProjectDraftCreateSerializer(serializers.ModelSerializer):
             category_id=validated_data['category'].id,
             difficulty_level_id=validated_data.get('difficulty_level').id if validated_data.get('difficulty_level') else None,
             is_public=validated_data['is_public'],
-            name=validated_data['name'],
+            name=validated_data.get('name'),
         )
 
 
