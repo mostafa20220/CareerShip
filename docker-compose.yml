@@ -1,25 +1,25 @@
 services:
-#
-#  traefik:
-#    image: traefik:v2.10
-#    container_name: traefik
-#    restart: always
-#    command:
-#      - --api.dashboard=true
-#      - --entrypoints.web.address=:80
-#      - --entrypoints.websecure.address=:443
-#      - --providers.docker=true
-#      - --certificatesresolvers.myresolver.acme.httpchallenge=true
-#      - --certificatesresolvers.myresolver.acme.httpchallenge.entrypoint=web
-#      - --certificatesresolvers.myresolver.acme.email=${EMAIL}
-#      - --certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json
-#    ports:
-#      - "80:80"
-#      - "443:443"
-#      - "8081:8080" # Traefik dashboard
-#    volumes:
-#      - /var/run/docker.sock:/var/run/docker.sock:ro
-#      - ./letsencrypt:/letsencrypt
+
+  traefik:
+    image: traefik:v2.10
+    container_name: traefik
+    restart: always
+    command:
+      - --api.dashboard=true
+      - --entrypoints.web.address=:80
+      - --entrypoints.websecure.address=:443
+      - --providers.docker=true
+      - --certificatesresolvers.myresolver.acme.httpchallenge=true
+      - --certificatesresolvers.myresolver.acme.httpchallenge.entrypoint=web
+      - --certificatesresolvers.myresolver.acme.email=${EMAIL}
+      - --certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8081:8080" # Traefik dashboard
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./letsencrypt:/letsencrypt
 
 
 
@@ -27,8 +27,6 @@ services:
     image: redis:7.0
     container_name: redis
     restart: unless-stopped
-    labels:
-      - "traefik.enable=false"
 
   celery:
     build: .
