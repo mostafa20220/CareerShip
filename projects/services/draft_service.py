@@ -8,27 +8,20 @@ class DraftService:
     def __init__(self, user):
         self.user = user
 
-    def create_draft(self, prompt: str, category_id: int, is_public: bool, difficulty_level_id: int = None, name: str = None) -> ProjectDraft:
+    def create_draft(self, category_id: int, is_public: bool, difficulty_level_id: int = None, name: str = None) -> ProjectDraft:
         """
         Creates a new project draft and triggers the initial generation task.
         """
-        # The conversation history starts with the initial system prompt and the user's first message.
-        # The actual system prompt will be constructed in the Celery task.
-        initial_conversation = [{"role": "user", "parts": [prompt]}]
-
         draft = ProjectDraft.objects.create(
             user=self.user,
             category_id=category_id,
             difficulty_level_id=difficulty_level_id,
             name=name,
             is_public=is_public,
-            conversation_history=initial_conversation,
-            status=DraftStatus.GENERATING
+            conversation_history=[],
+            status=DraftStatus.PENDING_REVIEW
 
         )
-
-        # Trigger the asynchronous task to generate the project content.
-        generate_project_draft_task.delay(draft.id)
 
         return draft
 

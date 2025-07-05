@@ -2,8 +2,8 @@
   "name": "Build the TaskMaster API",
   "slug": "build-the-taskmaster-api-v2",
   "description": "This project challenges you to build a simple but solid REST API for managing a to-do list. You will create a server that can create, read, update, and delete tasks. Our automated test suite will interact with your live API to ensure it meets all the requirements.\n\nThis project will teach you the fundamentals of building RESTful APIs, handling different HTTP requests, and structuring data in JSON—skills every backend developer needs.",
-  "difficulty_level": "Beginner",
-  "category": "Back-End Development",
+  "difficulty_level": "Easy",
+  "category": "Backend",
   "is_premium": false,
   "max_team_size": 1,
   "tasks": [
