@@ -58,32 +58,39 @@ class ProjectDetailsView(RetrieveAPIView):
     serializer_class = ProjectDetailsSerializer
 
 
-@api_view(["POST"])
+api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def request_certificate(request, project_id):
     project = get_object_or_404(Project, id=project_id)
-    user_project = TeamProject.objects.filter(
-        user=request.user, project=project, is_finished=True
+
+    # Check if user is in any team that has finished this project
+    team_project = TeamProject.objects.filter(
+        team__members=request.user,  # User is a member of the team
+        project=project,  # Team is working on this project
+        is_finished=True  # Team has finished the project
     ).first()
-    if not user_project:
+
+    if not team_project:
         return Response(
-            {"detail": "Project not finished by user."},
-            status=status.HTTP_400_BAD_REQUEST,
+            {"detail": "No team you're a member of has finished this project."},
+            status=status.HTTP_400_BAD_REQUEST
         )
+
     if Certificate.objects.filter(user=request.user, project=project).exists():
         return Response(
             {"detail": "Certificate already issued."},
-            status=status.HTTP_400_BAD_REQUEST,
+            status=status.HTTP_400_BAD_REQUEST
         )
+
     cert = Certificate.objects.create(
-        user=request.user, project=project, no=uuid.uuid4()
+        user=request.user,
+        project=project,
+        no=uuid.uuid4()
     )
+
     return Response(
-        {
-            "detail": "Certificate requested successfully.",
-            "certificate_id": str(cert.no),
-        },
-        status=status.HTTP_201_CREATED,
+        {"detail": "Certificate requested successfully.", "certificate_id": str(cert.no)},
+        status=status.HTTP_201_CREATED
     )
 
 
@@ -91,25 +98,31 @@ def request_certificate(request, project_id):
 @permission_classes([IsAuthenticated])
 def certificate_available(request, project_id):
     project = get_object_or_404(Project, id=project_id)
-    user_project = TeamProject.objects.filter(
-        user=request.user, project=project, is_finished=True
+
+    # Check if user is in any team that has finished this project
+    team_project = TeamProject.objects.filter(
+        team__members=request.user,  # User is a member of the team
+        project=project,  # Team is working on this project
+        is_finished=True  # Team has finished the project
     ).first()
-    if not user_project:
+
+    if not team_project:
         return Response(
-            {"available": False, "detail": "Project not finished by user."},
-            status=status.HTTP_400_BAD_REQUEST,
+            {"available": False, "detail": "No team you're a member of has finished this project."},
+            status=status.HTTP_400_BAD_REQUEST
         )
-    certificate = Certificate.objects.filter(
-        user=request.user, project=project
-    ).exists()
+
+    # Check if certificate already exists
+    certificate = Certificate.objects.filter(user=request.user, project=project).exists()
     if certificate:
         return Response(
-            {"available": False, "detail": "Certificate already issued."},
-            status=status.HTTP_200_OK,
+            {"available": False, "detail": "Certificate already issued for that project."},
+            status=status.HTTP_200_OK
         )
+
     return Response(
         {"available": True, "detail": "Certificate is available to be requested."},
-        status=status.HTTP_200_OK,
+        status=status.HTTP_200_OK
     )
 
 
