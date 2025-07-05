@@ -2,8 +2,8 @@
   "name": "Build the 'LinkZip' URL Shortener API",
   "slug": "linkzip-url-shortener-api-v2",
   "description": "This project challenges you to build a robust API for a URL shortening service. Users will submit a long URL and receive a shorter, unique 'zip code' that redirects to the original URL. This project moves beyond simple CRUD and requires you to think about data generation, HTTP redirects, and tracking state.",
-  "difficulty_level": "Intermediate",
-  "category": "Back-End Development",
+  "difficulty_level": "Medium",
+  "category": "Backend",
   "is_premium": false,
   "max_team_size": 1,
   "tasks": [
