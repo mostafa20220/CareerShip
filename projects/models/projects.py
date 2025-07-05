@@ -26,7 +26,7 @@ class Project(models.Model):
     is_public = models.BooleanField(default=True, db_index=True)
     name = models.CharField(max_length=255)
     description = models.TextField()
-    slug = models.SlugField(unique=True)
+    slug = models.SlugField(max_length=255, unique=True)
     is_premium = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     max_team_size = models.PositiveSmallIntegerField(default=1)
