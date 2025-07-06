@@ -192,6 +192,7 @@ class ProjectSerializer(serializers.ModelSerializer):
             "description",
             "slug",
             "is_premium",
+            'is_public',
             "created_at",
             "max_team_size",
             "difficulty_level",

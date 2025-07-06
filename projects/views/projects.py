@@ -1,3 +1,4 @@
+from django.db.models import Q
 from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -32,7 +33,11 @@ class ProjectsListView(ListAPIView):
     pagination_class = StandardPagination
 
     def get_queryset(self):
-        queryset = super().get_queryset().filter(is_public=True)
+
+        queryset = Project.objects.filter(
+            Q(is_public=True) | Q(created_by=self.request.user)
+        )
+
         category = self.request.query_params.get('category')
         difficulty_level = self.request.query_params.get('difficulty_level')
 
