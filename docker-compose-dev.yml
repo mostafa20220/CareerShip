@@ -1,0 +1,66 @@
+services:
+  db:
+    image: postgres:17.2
+    volumes:
+      - careershipdb:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_DB=${DB_NAME}
+    ports:
+      - "5435:5432"
+    env_file:
+      - ./.env
+    restart: unless-stopped
+
+  celery:
+    build: .
+    volumes:
+      - .:/code
+    container_name: celery_worker
+    command: celery -A CareerShip worker --loglevel=info
+    restart: unless-stopped
+    depends_on:
+      - redis
+      - django
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  celery-beat:
+    build: .
+    volumes:
+      - .:/code
+    container_name: celery_beat
+    command: celery -A CareerShip beat --loglevel=info
+    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      - redis
+      - django
+
+
+  redis:
+    image: redis:7.0
+    container_name: redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+
+  django:
+    build: .
+    volumes:
+      - .:/code
+    ports:
+      - "8000:8001"
+    depends_on:
+      - db
+    env_file:
+      - ./.env
+    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+
+volumes:
+  careershipdb:
