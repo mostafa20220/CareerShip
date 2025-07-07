@@ -183,6 +183,8 @@ class ProjectSerializer(serializers.ModelSerializer):
     category = serializers.StringRelatedField()
     created_at = serializers.DateTimeField(format="%d %b %Y")
     tasks = TaskSerializer(many=True)
+    is_registered = serializers.SerializerMethodField()
+    created_by_name = serializers.SerializerMethodField()
 
     class Meta:
         model = Project
@@ -192,13 +194,33 @@ class ProjectSerializer(serializers.ModelSerializer):
             "description",
             "slug",
             "is_premium",
-            'is_public',
+            "is_public",
             "created_at",
             "max_team_size",
             "difficulty_level",
             "category",
             "tasks",
+            "is_registered",
+            "created_by_name",
         ]
+
+    def get_is_registered(self, obj):
+        """Check if the current user is registered for this project through team membership."""
+        request = self.context.get('request')
+        if not request or not request.user.is_authenticated:
+            return False
+
+        from projects.models.projects import TeamProject
+        return TeamProject.objects.filter(
+            team__members=request.user,
+            project=obj
+        ).exists()
+
+    def get_created_by_name(self, obj):
+        """Get the full name of the project creator."""
+        if obj.created_by:
+            return f"{obj.created_by.first_name} {obj.created_by.last_name}".strip()
+        return "Admins"
 
 class EndpointDetailsSerializer(serializers.ModelSerializer):
     task = serializers.StringRelatedField()
