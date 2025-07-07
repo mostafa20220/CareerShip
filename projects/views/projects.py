@@ -1,8 +1,7 @@
-from django.db.models import Q
 from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.decorators import api_view, permission_classes, action
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.exceptions import ValidationError
 from rest_framework.generics import RetrieveAPIView, ListAPIView
@@ -10,45 +9,42 @@ from rest_framework.generics import RetrieveAPIView, ListAPIView
 from users.permissions import IsAdmin
 from utils.pagination import StandardPagination
 from django.shortcuts import get_object_or_404
-import uuid
-
-
-from certificates.models import Certificate
-from projects.models.projects import Project, TeamProject
+from projects.models.projects import Project
 from projects.serializers import (
     ProjectSeedSerializer,
     ProjectSerializer,
     ProjectDetailsSerializer,
 )
 from projects.services.project_seed_service import ProjectCreationError, ProjectSeederService
+from projects.services.project_filter_service import ProjectFilterService
+from projects.services.query_parameter_parser import QueryParameterParser
+from projects.services.certificate_service import CertificateService
 from utils.logging_utils import get_logger
 
 logger = get_logger(__name__)
 
 
 class ProjectsListView(ListAPIView):
+    """List view for projects with advanced filtering capabilities."""
+
     permission_classes = [IsAuthenticated]
     queryset = Project.objects.all()
     serializer_class = ProjectSerializer
     pagination_class = StandardPagination
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.filter_service = ProjectFilterService()
+        self.query_parser = QueryParameterParser()
+
     def get_queryset(self):
+        """Get filtered queryset based on query parameters."""
+        filters = self.query_parser.extract_filters(self.request)
+        return self.filter_service.get_filtered_projects(filters, self.request.user)
 
-        queryset = Project.objects.filter(
-            Q(is_public=True) | Q(created_by=self.request.user)
-        )
+class UserCreatedProjectsView(ListAPIView):
+    """List view for projects created by the authenticated user."""
 
-        category = self.request.query_params.get('category')
-        difficulty_level = self.request.query_params.get('difficulty_level')
-
-        if category:
-            queryset = queryset.filter(category__name=category)
-        if difficulty_level:
-            queryset = queryset.filter(difficulty_level__name=difficulty_level)
-
-        return queryset
-
-class UserCreatedProjectsView (ListAPIView):
     permission_classes = [IsAuthenticated]
     serializer_class = ProjectSerializer
     pagination_class = StandardPagination
@@ -56,45 +52,37 @@ class UserCreatedProjectsView (ListAPIView):
     def get_queryset(self):
         return Project.objects.filter(created_by=self.request.user)
 
+
 class ProjectDetailsView(RetrieveAPIView):
+    """Detail view for a specific project."""
+
     lookup_url_kwarg = 'project_id'
     queryset = Project.objects.all()
     permission_classes = [IsAuthenticated]
     serializer_class = ProjectDetailsSerializer
 
 
-api_view(["POST"])
+@api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def request_certificate(request, project_id):
+    """Request a certificate for a completed project."""
     project = get_object_or_404(Project, id=project_id)
 
-    # Check if user is in any team that has finished this project
-    team_project = TeamProject.objects.filter(
-        team__members=request.user,  # User is a member of the team
-        project=project,  # Team is working on this project
-        is_finished=True  # Team has finished the project
-    ).first()
+    can_request, message = CertificateService.can_request_certificate(request.user, project)
 
-    if not team_project:
+    if not can_request:
         return Response(
-            {"detail": "No team you're a member of has finished this project."},
+            {"detail": message},
             status=status.HTTP_400_BAD_REQUEST
         )
 
-    if Certificate.objects.filter(user=request.user, project=project).exists():
-        return Response(
-            {"detail": "Certificate already issued."},
-            status=status.HTTP_400_BAD_REQUEST
-        )
-
-    cert = Certificate.objects.create(
-        user=request.user,
-        project=project,
-        no=uuid.uuid4()
-    )
+    certificate = CertificateService.create_certificate(request.user, project)
 
     return Response(
-        {"detail": "Certificate requested successfully.", "certificate_id": str(cert.no)},
+        {
+            "detail": "Certificate requested successfully.",
+            "certificate_id": str(certificate.no)
+        },
         status=status.HTTP_201_CREATED
     )
 
@@ -102,67 +90,56 @@ def request_certificate(request, project_id):
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def certificate_available(request, project_id):
+    """Check if a certificate is available for request."""
     project = get_object_or_404(Project, id=project_id)
 
-    # Check if user is in any team that has finished this project
-    team_project = TeamProject.objects.filter(
-        team__members=request.user,  # User is a member of the team
-        project=project,  # Team is working on this project
-        is_finished=True  # Team has finished the project
-    ).first()
+    available, message = CertificateService.is_certificate_available(request.user, project)
 
-    if not team_project:
-        return Response(
-            {"available": False, "detail": "No team you're a member of has finished this project."},
-            status=status.HTTP_400_BAD_REQUEST
-        )
-
-    # Check if certificate already exists
-    certificate = Certificate.objects.filter(user=request.user, project=project).exists()
-    if certificate:
-        return Response(
-            {"available": False, "detail": "Certificate already issued for that project."},
-            status=status.HTTP_200_OK
-        )
+    response_status = status.HTTP_200_OK if available else status.HTTP_400_BAD_REQUEST
 
     return Response(
-        {"available": True, "detail": "Certificate is available to be requested."},
-        status=status.HTTP_200_OK
+        {"available": available, "detail": message},
+        status=response_status
     )
 
 
 class ProjectSeedUploadView(APIView):
+    """API view for uploading project seed data."""
+
     permission_classes = [IsAdmin]
 
     def post(self, request, *args, **kwargs):
+        """Handle project seed upload."""
         logger.info(
-            f"Received project seed upload request from user id: {request.user.id}, user name: {request.user.first_name} {request.user.last_name}"
+            f"Received project seed upload request from user id: {request.user.id}, "
+            f"user name: {request.user.first_name} {request.user.last_name}"
         )
         logger.debug(f"Request data: {request.data}")
+
         serializer = ProjectSeedSerializer(data=request.data)
+
         try:
             serializer.is_valid(raise_exception=True)
-
             service = ProjectSeederService(serializer.validated_data)
             project = service.create_project()
 
         except ValidationError as e:
             logger.warning(f"Validation error during project seed upload: {e.detail}")
             return Response(e.detail, status=status.HTTP_400_BAD_REQUEST)
+
         except ProjectCreationError as e:
             logger.error(f"Project creation error during project seed upload: {e}")
             return Response({'error': str(e)}, status=e.status_code)
+
         except Exception as e:
             logger.critical(
                 f"Unexpected error during project seed upload: {e}", exc_info=True
             )
-            # Catch unexpected errors
             return Response(
                 {'error': f'An unexpected error occurred: {str(e)}'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
-        # On success, return a representation of the created project's main details
         response_data = {
             'id': project.id,
             'name': project.name,
