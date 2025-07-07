@@ -92,7 +92,7 @@ class ProjectFilterService:
         self._filters = {
             'category': CategoryFilter(),
             'difficulty_level': DifficultyLevelFilter(),
-            'premium': PremiumFilter(),
+            'is_premium': PremiumFilter(),
             'is_public': PublicFilter(),
             'is_registered': RegistrationFilter(),
         }
