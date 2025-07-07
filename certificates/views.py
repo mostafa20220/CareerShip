@@ -47,8 +47,12 @@ class CertificateDownloadView(generics.RetrieveAPIView):
     lookup_field = 'no'  # Instead of pk
     lookup_url_kwarg = 'certificate_id'
 
-    def post(self, request, certificate_id):
-        certificate = get_object_or_404(Certificate, no=certificate_id, user=request.user)
+    def get_queryset(self):
+        return Certificate.objects.filter(user=self.request.user)
+
+    def retrieve(self, request, *args, **kwargs):
+        """Override retrieve to return PDF file instead of JSON."""
+        certificate = self.get_object()
         student = f"{request.user.first_name} {request.user.last_name}"
         track = certificate.project.name
         date = certificate.created_at.strftime("%d/%m/%Y")
@@ -62,4 +66,3 @@ class CertificateDownloadView(generics.RetrieveAPIView):
         )
 
         return FileResponse(pdf_buffer, as_attachment=True, filename=f'certificate_{certificate_id_str}.pdf')
-
