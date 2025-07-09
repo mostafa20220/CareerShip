@@ -497,8 +497,14 @@ class ListProjectSubmissionsSerializer(serializers.ModelSerializer):
         exclude = ["execution_logs", "feedback","project"]
 
     def get_task(self, obj):
-        """Return task order """
-        return obj.task.order
+        """Return task id, order, name  and slug for the submission."""
+        if obj.task:
+            return {
+                "id": obj.task.id,
+                "name": obj.task.name,
+                "order": obj.task.order,
+            }
+        return None
 
 
 
