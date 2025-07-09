@@ -469,10 +469,23 @@ class CreateSubmissionSerializer(serializers.ModelSerializer):
 
 
 class ListTaskSerializer(serializers.ModelSerializer):
-
+    is_passed = serializers.SerializerMethodField()
     class Meta:
         model = Task
         fields = "__all__"
+
+    def get_is_passed(self, obj):
+        """Check if the current user has passed this task."""
+        request = self.context.get('request')
+        if not request or not request.user.is_authenticated:
+            return False
+
+        from projects.models.submission import Submission, PASSED
+        return Submission.objects.filter(
+            team__members=request.user,
+            task=obj,
+            status=PASSED
+        ).exists()
 
 
 class ListProjectSubmissionsSerializer(serializers.ModelSerializer):
