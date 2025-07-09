@@ -168,13 +168,27 @@ class CategorySerializer(serializers.ModelSerializer):
 class TaskSerializer(serializers.ModelSerializer):
     difficulty_level = serializers.SerializerMethodField()
     created_at = serializers.DateTimeField(format="%d %b %Y")
+    is_passed = serializers.SerializerMethodField()
 
     class Meta:
         model = Task
-        fields = ["id", "name", "slug", "difficulty_level", "created_at"]
+        fields = ["id", "name", "slug", "is_passed","difficulty_level", "created_at"]
 
     def get_difficulty_level(self, obj):
         return obj.difficulty_level.name if obj.difficulty_level else None
+
+    def get_is_passed(self, obj):
+        """Check if the current user has passed this task."""
+        request = self.context.get('request')
+        if not request or not request.user.is_authenticated:
+            return False
+
+        from projects.models.submission import Submission, PASSED
+        return Submission.objects.filter(
+            team__members=request.user,
+            task=obj,
+            status=PASSED
+        ).exists()
 
 
 
@@ -182,7 +196,6 @@ class ProjectSerializer(serializers.ModelSerializer):
     difficulty_level = serializers.StringRelatedField()
     category = serializers.StringRelatedField()
     created_at = serializers.DateTimeField(format="%d %b %Y")
-    tasks = TaskSerializer(many=True)
     is_registered = serializers.SerializerMethodField()
     created_by_name = serializers.SerializerMethodField()
 
@@ -199,7 +212,6 @@ class ProjectSerializer(serializers.ModelSerializer):
             "max_team_size",
             "difficulty_level",
             "category",
-            "tasks",
             "is_registered",
             "created_by_name",
         ]
@@ -234,6 +246,7 @@ class TaskDetailsSerializer(serializers.ModelSerializer):
     difficulty_level = serializers.StringRelatedField()
     created_at = serializers.DateTimeField(format="%d %b %Y")
     endpoints = serializers.SerializerMethodField()
+    is_passed = serializers.SerializerMethodField()
 
     class Meta:
         model = Task
@@ -242,6 +255,8 @@ class TaskDetailsSerializer(serializers.ModelSerializer):
             "name",
             "slug",
             "description",
+            "order",
+            "is_passed",
             "duration_in_days",
             "difficulty_level",
             "created_at",
@@ -252,11 +267,25 @@ class TaskDetailsSerializer(serializers.ModelSerializer):
         endpoints = Endpoint.objects.filter(task=obj)
         return EndpointDetailsSerializer(endpoints, many=True).data
 
+    def get_is_passed(self, obj):
+        """Check if the current user has passed this task."""
+        request = self.context.get('request')
+        if not request or not request.user.is_authenticated:
+            return False
+
+        from projects.models.submission import Submission, PASSED
+        return Submission.objects.filter(
+            team__members=request.user,
+            task=obj,
+            status=PASSED
+        ).exists()
+
 class ProjectDetailsSerializer(serializers.ModelSerializer):
     difficulty_level = serializers.StringRelatedField()
     category = serializers.StringRelatedField()
     created_at = serializers.DateTimeField(format="%d %b %Y")
-    tasks = TaskDetailsSerializer(many=True)
+    tasks = TaskSerializer(many=True)
+    is_registered = serializers.SerializerMethodField()
 
     class Meta:
         model = Project
@@ -266,12 +295,28 @@ class ProjectDetailsSerializer(serializers.ModelSerializer):
             "description",
             "slug",
             "is_premium",
+            "is_public",
+            "is_registered",
             "created_at",
             "max_team_size",
             "difficulty_level",
             "category",
             "tasks",
         ]
+
+    def get_is_registered(self, obj):
+        """Check if the current user is registered for this project through team membership."""
+        request = self.context.get('request')
+        if not request or not request.user.is_authenticated:
+            return False
+
+        from projects.models.projects import TeamProject
+        return TeamProject.objects.filter(
+            team__members=request.user,
+            project=obj
+        ).exists()
+
+
 
 class TeamProjectSerializer(serializers.ModelSerializer):
     project = ProjectSerializer()

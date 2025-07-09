@@ -1,6 +1,5 @@
 from typing import Optional, Tuple
 from django.contrib.auth import get_user_model
-from rest_framework import status
 import uuid
 
 from certificates.models import Certificate
