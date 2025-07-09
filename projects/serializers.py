@@ -389,7 +389,6 @@ class CreateSubmissionSerializer(serializers.ModelSerializer):
             'id', 'user', 'status', 'project', 'task'
         ]
 
-
     def validate_deployment_url(self, value):
         if value and not value.startswith(('http://', 'https://')):
             raise serializers.ValidationError("URL must start with http:// or https://")
@@ -489,10 +488,17 @@ class ListTaskSerializer(serializers.ModelSerializer):
 
 
 class ListProjectSubmissionsSerializer(serializers.ModelSerializer):
+    task = serializers.SerializerMethodField()
+    user = serializers.StringRelatedField()
+    team = serializers.StringRelatedField()
 
     class Meta:
         model = Submission
-        exclude = ["execution_logs", "feedback"]
+        exclude = ["execution_logs", "feedback","project"]
+
+    def get_task(self, obj):
+        """Return task order """
+        return obj.task.order
 
 
 

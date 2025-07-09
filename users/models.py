@@ -66,6 +66,8 @@ class User(AbstractBaseUser, PermissionsMixin):
         return self.user_type == ADMIN
 
     def __str__(self):
+        if self.first_name or self.last_name:
+            return f"{self.first_name} {self.last_name}"
         return self.email
 
 

@@ -13,7 +13,7 @@ class Team(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"{self.name} ({self.uuid})"
+        return f"{self.name}"
 
     def add_member(self, user):
         """Add a new member to the team."""
