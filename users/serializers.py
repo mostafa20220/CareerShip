@@ -2,16 +2,35 @@ from teams.models import Team
 from users.models import User, Skill, UserSkills
 from rest_framework import serializers
 from rest_framework_simplejwt.tokens import RefreshToken, AccessToken
+from django.contrib.auth.password_validation import validate_password as django_validate_password
+from django.core.exceptions import ValidationError
 
 
 class RegisterSerializer(serializers.ModelSerializer):
-
+    password = serializers.CharField(write_only=True)
     class Meta:
         model = User
         fields = ['first_name','last_name','email', 'password']
         extra_kwargs = {
             'password': {'write_only': True}
         }
+
+    def validate_password(self, value):
+        try:
+            django_validate_password(value)
+        except ValidationError as e:
+            raise serializers.ValidationError(e.messages)
+        return value
+
+    def create(self, validated_data):
+        user = User(
+            email=validated_data['email'],
+            first_name=validated_data['first_name'],
+            last_name=validated_data['last_name'],
+        )
+        user.set_password(validated_data['password'])
+        user.save()
+        return user
 
 
 
