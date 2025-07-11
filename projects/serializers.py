@@ -5,6 +5,7 @@ from projects.models.projects import Project, TeamProject
 from projects.models.submission import Submission, PASSED
 from projects.models.tasks_endpoints import Task, MethodType, Endpoint
 from teams.models import Team
+from teams.serializers import TeamSerializer
 from .models import ProjectDraft, DraftStatus
 from .services.submissions_services import SubmissionService
 from .services.draft_service import DraftService
@@ -320,11 +321,11 @@ class ProjectDetailsSerializer(serializers.ModelSerializer):
 
 class TeamProjectSerializer(serializers.ModelSerializer):
     project = ProjectSerializer()
-    team = serializers.StringRelatedField()
+    team = TeamSerializer()
 
     class Meta:
         model = TeamProject
-        fields = "__all__"
+        fields = ['id', 'project', 'team', 'is_finished', 'finished_at', 'created_at', 'deployment_url']
 
 
 class ProjectRegistrationSerializer(serializers.ModelSerializer):
