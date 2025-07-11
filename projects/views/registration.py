@@ -21,7 +21,11 @@ class ProjectRegistrationViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        return TeamProject.objects.filter(team__in=user.teams.all())
+        project_id = self.request.query_params.get('project_id')
+        queryset = TeamProject.objects.filter(team__in=user.teams.all())
+        if project_id is not None:
+            queryset = queryset.filter(project_id=project_id)
+        return queryset
 
     def get_serializer_class(self):
         if self.action == 'list':
