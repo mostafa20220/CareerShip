@@ -9,15 +9,15 @@
   <br />
   <a href="https://dev.d3uog1tvqvta9r.amplifyapp.com/"><strong>View Live Demo</strong></a>
   ·
-  <a href="https://github.com/mostafa20220/CareerShip-Backend/issues">Report Bug</a>
+  <a href="https://github.com/mostafa20220/CareerShip/issues">Report Bug</a>
   ·
-  <a href="https://github.com/mostafa20220/CareerShip-Backend/issues">Request Feature</a>
+  <a href="https://github.com/mostafa20220/CareerShip/issues">Request Feature</a>
 </p>
 
 <p align="center">
-    <img alt="GitHub repo size" src="https://img.shields.io/github/repo-size/mostafa20220/CareerShip-Backend?style=for-the-badge&label=Backend">
-    <img alt="GitHub repo size" src="https://img.shields.io/github/repo-size/mostafa20220/CareerShip-Frontend?style=for-the-badge&label=Frontend">
-    <img alt="GitHub stars" src="https://img.shields.io/github/stars/mostafa20220/CareerShip-Backend?style=for-the-badge&social=true">
+    <img alt="GitHub repo size" src="https://img.shields.io/github/repo-size/mostafa20220/CareerShip?style=for-the-badge&label=Backend">
+    <img alt="GitHub repo size" src="https://img.shields.io/github/repo-size/mostafa20220/careership-frontend?style=for-the-badge&label=Frontend">
+    <img alt="GitHub stars" src="https://img.shields.io/github/stars/mostafa20220/CareerShip?style=for-the-badge&social=true">
 </p>
 
 ---
