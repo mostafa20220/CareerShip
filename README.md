@@ -174,6 +174,7 @@ Distributed under the MIT License. See `LICENSE` for more information.
 ## 📬 Contact
 
 Mostafa Hesham - [mostafa.hesham.cs.@gmail.com](mailto:mostafa.hesham.cs@gmail.com)
+Omar Khaled - [omar.khaledmo152@gmail.com](mailto:omar.khaledmo152@gmail.com)
 
 **Project Links:**
 * **Backend:** [https://github.com/mostafa20220/CareerShip](https://github.com/mostafa20220/CareerShip)
